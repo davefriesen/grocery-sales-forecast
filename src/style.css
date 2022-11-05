@@ -1,0 +1,75 @@
+body {
+	color: #000000;
+	font-family: "Open Sans", sans-serif;
+	font-size: 95%;
+}
+
+p {
+  font-size: 1.6em;
+/*  font-weight: bold;
+  text-indent: 5%;*/
+}
+
+h1 {
+  font-family: "Montserrat", sans-serif;
+  font-size: 3em !important;
+  font-weight: bold;
+}
+
+h2 {
+  border-top: 2px dashed #0070c0;
+  color: #0070c0;
+  font-family: "Montserrat", sans-serif;
+  margin-top: 2.1em;
+  padding-top: 0.5em;
+  padding-bottom: 0.2em;
+}
+
+h3 {
+  color: #007b43;
+  font-size: 2.3em;
+  font-weight: bold;
+  margin-top: 2.1em;
+}
+
+h4 {
+  font-size: 2em;
+  font-weight: bold;
+}
+
+h5 {
+  color: #007b43;
+  font-size: 1.8em;
+  line-height: 1.3em;
+  background: #f9f9f9;
+  border: 3px solid #007b43;
+  border-radius: 0.3em;
+  padding: 0.7em;
+}
+
+#highlight {
+  color: red !important;
+}
+
+h6 {
+  color: #333333;
+  font-size: 2em;
+  font-weight: bold;
+  margin-top: 1.9em;
+}
+
+li {
+  font-size: 1.4em;
+}
+
+.source {line-height: 1.3em; background: #f9f9f9; border: 1px solid #777777;}
+.output { line-height: 1.3em; background: white; border: 3px solid #007b43;}
+
+.footnotes-end-of-document {
+  padding-top: 2.9em;
+}
+
+.footnotes, .footnotes-end-of-document li {
+  font-size: 1em;
+}
+

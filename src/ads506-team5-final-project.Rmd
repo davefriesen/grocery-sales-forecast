@@ -1,0 +1,146 @@
+---
+title: "Grocery Sales Forecast"
+author:
+  Christine Vu^[University of San Diego, cvu@sandiego.edu], Dave Friesen^[University of San Diego, dfriesen@sandiego.edu]
+date: "12/12/2022"
+geometry: "left=2cm,right=2cm,top=2cm,bottom=2cm"
+output:
+  html_document:
+    css: "style.css"
+  pdf_document: default
+---
+
+<style>
+.main-container {
+  max-width: 1024px;
+}
+</style>
+
+
+### Objective and Hypothesis
+
+#### [. . .]
+
+
+```{r setup, echo = FALSE, message = FALSE}
+# Load R libraries
+
+# Expand output width and minimize exp notation
+options(width = 150)
+options(scipen = 100)
+options(digits = 1)
+
+# Set style defaults
+knitr::opts_chunk$set(class.source = "source")
+knitr::opts_chunk$set(class.output = "output")
+knitr::opts_chunk$set(fig.width = 10, fig.height = (10 * .45), fig.align = "center")
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(comment = NA)
+```
+
+### Data Load and Validation
+
+```{r data_load_validation}
+# Load dataset(s); assumes folder structure with data parallel to src
+train_df <- read.csv("../data/train.csv", header = TRUE)
+test_df <- read.csv("../data/test.csv", header = TRUE)
+stores_df <- read.csv("../data/stores.csv", header = TRUE)
+oil_df <- read.csv("../data/oil.csv", header = TRUE)
+events_df <- read.csv("../data/holidays_events.csv", header = TRUE)
+
+# Data validation and understanding, including structure, content, and statistical characteristics covered below
+```
+
+
+###### Data Structure Review
+
+```{r data_structure_review}
+# Summarize base datasets
+str(train_df)
+str(test_df)
+str(stores_df)
+str(oil_df)
+str(events_df)
+
+# [Optionally] review sample observations
+head(train_df, 5)
+head(test_df, 5)
+head(stores_df, 5)
+head(oil_df, 5)
+head(events_df, 5)
+```
+
+
+### Univariate Analysis and Data Preparation
+
+
+###### Data Profiling
+
+```{r data_profiling}
+# e.g., statistical characteristics (including distribution, skewness, outliers)
+```
+
+
+###### Preliminary Feature Reduction (clearly n/a to Objective and Hypothesis)
+
+
+###### Attribute Names (confirm/update)
+
+
+###### Target and Feature Identification (preliminary)
+
+
+###### Data Types (confirm/update)
+
+
+###### Data Enrichment
+
+
+###### Categorical Data Profiling
+
+
+### Data Partitioning
+
+
+### Additional Uni/Multivariate EDA and Feature Engineering/Selection
+
+
+###### Missing/null values (find/impute/drop)
+
+
+###### Categorical features (encoding)
+
+
+###### Outliers (convert/drop)
+
+
+###### Zero/Near-Zero Variances (find/address)
+
+
+###### Centering/scaling (standardizing/normalizing)
+
+
+###### Collinearity and Dependencies (find/address)
+
+
+###### "Noisy"/duplicate data (find/convert/drop)
+
+
+### Data Mining (Unsupervised)
+
+
+### Modeling
+
+
+###### Final Feature Selection
+
+
+###### Model Setup (Selection)
+
+
+###### Model Run and Evaluation (Iteration n)
+
+
+###### Optimization, Tuning, Selection
+
