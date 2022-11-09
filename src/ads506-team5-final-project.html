@@ -525,7 +525,46 @@ head(train_df, 5)</code></pre>
 <h3>Univariate Analysis and Data Preparation</h3>
 <div id="data-profiling" class="section level6">
 <h6>Data Profiling</h6>
-<pre class="r source"><code># e.g., statistical characteristics (including distribution, skewness, outliers)</code></pre>
+<pre class="r source"><code># e.g., statistical characteristics (including distribution, skewness, outliers)
+univariate(train_df)</code></pre>
+<pre class="output"><code>Summary Univariate Analysis (3,000,888 observations)
+            Type          NA BlankZ    Unique       Min       Max      Mean    Median Outlier&lt; &gt;Outlier Kurtosis Skewness
+id          integer                 3,000,888           3,000,887           1,500,444    No       No                -1.20
+date        character                   1,684                                                                            
+store_nbr   integer                        54         1        54                  28    No      Yes                -1.20
+family      character                      33                                                                            
+sales       numeric             31%   379,610             124,717       358        11    No      Yes        7.36   154.56
+onpromotion integer             79%       362                 741                        No       No       11.17   240.87</code></pre>
+<pre class="r source"><code>univariate(test_df)</code></pre>
+<pre class="output"><code>Summary Univariate Analysis (28,512 observations)
+            Type          NA BlankZ    Unique       Min       Max      Mean    Median Outlier&lt; &gt;Outlier Kurtosis Skewness
+id          integer                    28,512 3,000,888 3,029,399           3,015,144    No       No                -1.20
+date        character                      16                                                                            
+store_nbr   integer                        54         1        54                  28    No      Yes                -1.20
+family      character                      33                                                                            
+onpromotion integer             55%       212                 646                        No      Yes        8.50   125.77</code></pre>
+<pre class="r source"><code>univariate(stores_df)</code></pre>
+<pre class="output"><code>Summary Univariate Analysis (54 observations)
+          Type          NA BlankZ    Unique       Min       Max      Mean    Median Outlier&lt; &gt;Outlier Kurtosis Skewness
+store_nbr integer                        54         1        54                  28    No       No                -1.27
+city      character                      22                                                                            
+state     character                      16                                                                            
+type      character                       5                                                                            
+cluster   integer                        17         1        17                   8    No      Yes        0.04    -1.32</code></pre>
+<pre class="r source"><code>univariate(oil_df)</code></pre>
+<pre class="output"><code>Summary Univariate Analysis (1,218 observations)
+           Type          NA BlankZ    Unique       Min       Max      Mean    Median Outlier&lt; &gt;Outlier Kurtosis Skewness
+date       character                   1,218                                                                            
+dcoilwtico numeric       3               998        26       111        68        53    No      Yes        0.32    -1.61</code></pre>
+<pre class="r source"><code>univariate(events_df)</code></pre>
+<pre class="output"><code>Summary Univariate Analysis (350 observations)
+            Type          NA BlankZ    Unique       Min       Max      Mean    Median Outlier&lt; &gt;Outlier Kurtosis Skewness
+date        character                     312                                                                            
+type        character                       6                                                                            
+locale      character                       3                                                                            
+locale_name character                      24                                                                            
+description character                     103                                                                            
+transferred character                       2                                                                            </code></pre>
 </div>
 <div id="preliminary-feature-reduction-clearly-na-to-objective-and-hypothesis" class="section level6">
 <h6>Preliminary Feature Reduction (clearly n/a to Objective and
