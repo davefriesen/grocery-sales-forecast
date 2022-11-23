@@ -24,7 +24,9 @@ output:
 
 ```{r setup, echo = FALSE, message = FALSE}
 # Load R libraries
-library(e1071)
+library(dplyr)
+library(lubridate)
+library(latex2exp)
 
 # Expand output width and minimize exp notation
 options(width = 150)
@@ -40,51 +42,19 @@ knitr::opts_chunk$set(message = FALSE)
 knitr::opts_chunk$set(comment = NA)
 ```
 
-### Data Load and Validation
-
-```{r data_load_validation}
-# Load dataset(s); assumes folder structure with data parallel to src
-train_df <- read.csv("../data/train.csv", header = TRUE)
-test_df <- read.csv("../data/test.csv", header = TRUE)
-stores_df <- read.csv("../data/stores.csv", header = TRUE)
-oil_df <- read.csv("../data/oil.csv", header = TRUE)
-events_df <- read.csv("../data/holidays_events.csv", header = TRUE)
-
-# Data validation and understanding, including structure, content, and statistical characteristics covered below
-```
-
-
-###### Data Structure Review
-
-```{r data_structure_review}
-# Summarize base datasets
-str(train_df)
-str(test_df)
-str(stores_df)
-str(oil_df)
-str(events_df)
-
-# [Optionally] review sample observations
-head(train_df, 5)
-head(test_df, 5)
-head(stores_df, 5)
-head(oil_df, 5)
-head(events_df, 5)
-```
-
-
-### Univariate Analysis and Data Preparation
-
-
-###### Data Profiling
 
 ```{r data_univariate, echo = FALSE}
+# Load R libraries required by this function set
+library(caret)  # nearZeroVar function
+library(e1071)  # skewness function
+library(forecast)  # time-series forecasting
+
 # Note this function is generic and doesn't look for more intelligent "blank" values like "no record",
 #   "not available", etc.
 is_blank <- function(x) {
   classof_x <- class(x)
   result <-
-    !is.na(x) &
+    !(is.na(x) | is.nan(x)) &
     (((classof_x == "character") & (x == "")) |
      ((classof_x %in% c("integer", "numeric")) & (x == 0)))
   return(result)
@@ -99,32 +69,29 @@ format_percent <- function(x) {
 
 # Function to not output NaNs from third-party functions in lapply() below
 nan_replace_0 <- function(x) {
-  if (is.nan(x)) result <- 0 else result = x
+  if (is.na(x) | is.nan(x)) result <- 0 else result = x
   return(result)
 }
 
 # Function to Generate a summary of base dataset
-univariate <- function(df) {
+univariate <- function(df, df_name = deparse(substitute((df)))) {
   rowcount <- nrow(df)
+
   ua <- do.call(rbind, lapply(df, function(x) c(
     colnames(x),
     class(x),
-    format_percent(sum(is.na(x)) / rowcount),
+    format_percent(sum(is.na(x) | is.nan(x)) / rowcount),
     format_percent(sum(is_blank(x)) / rowcount),
     formatC(length(unique(na.omit(x))),
-            digits = 0, width = 9, format = "d", big.mark = ",", zero.print = FALSE),
+            digits = 0, width = 9, format = "d", big.mark = "", zero.print = FALSE),
     formatC(ifelse(is.numeric(x), min(na.omit(x)), 0),
-            digits = 0, width = 9, format = "f", big.mark = ",", zero.print = FALSE),
-#            digits = ifelse(is.double(x), 3, 0), width = 9, format = "f", big.mark = ",", zero.print = FALSE),
+            digits = ifelse(is.double(x), 1, 0), width = 9, format = "f", big.mark = "", zero.print = FALSE),
     formatC(ifelse(is.numeric(x), max(na.omit(x)), 0),
-            digits = 0, width = 9, format = "f", big.mark = ",", zero.print = FALSE),
-#            digits = ifelse(is.double(x), 3, 0), width = 9, format = "f", big.mark = ",", zero.print = FALSE),
+            digits = ifelse(is.double(x), 1, 0), width = 9, format = "f", big.mark = "", zero.print = FALSE),
     formatC(ifelse(is.double(x), mean(na.omit(x)), 0),
-            digits = 0, width = 9, format = "f", big.mark = ",", zero.print = FALSE),
-#            digits = 3, width = 9, format = "f", big.mark = ",", zero.print = FALSE),
+            digits = 1, width = 9, format = "f", big.mark = "", zero.print = FALSE),
     formatC(ifelse(is.numeric(x), median(na.omit(x)), 0),
-            digits = 0, width = 9, format = "f", big.mark = ",", zero.print = FALSE),
-#            digits = ifelse(is.double(x), 3, 0), width = 9, format = "f", big.mark = ",", zero.print = FALSE),
+            digits = ifelse(is.double(x), 1, 0), width = 9, format = "f", big.mark = "", zero.print = FALSE),
     format(ifelse(is.numeric(x),
            ifelse(na.omit(x) < (quantile(na.omit(x), 0.25) - (1.5 * IQR(na.omit(x)))), "Yes", "No"), ""),
            justify = "centre", width = 8, format = "s"),
@@ -132,13 +99,14 @@ univariate <- function(df) {
            ifelse(na.omit(x) > (quantile(na.omit(x), 0.75) - (1.5 * IQR(na.omit(x)))), "Yes", "No"), ""),
            justify = "centre", width = 8, format = "s"),
     formatC(ifelse(is.numeric(x), nan_replace_0(skewness(na.omit(x))), 0),
-            digits = 2, width = 8, format = "f", zero.print = FALSE),
-    formatC(ifelse(is.numeric(x), nan_replace_0(kurtosis(na.omit(x))), 0),
-            digits = 2, width = 8, format = "f", zero.print = FALSE))))
+            digits = 1, width = 8, format = "f", zero.print = FALSE),
+    "",
+    0.0)))
+
   colnames(ua) <- c(
     "Type",
-    format("NA", justify = "right", width = 6),
-    format("BlankZ", justify = "right", width = 6),
+    format("NA%", justify = "right", width = 6),
+    format("Blank%", justify = "right", width = 6),
     format("Unique", justify = "right", width = 9),
     format("Min", justify = "right", width = 9),
     format("Max", justify = "right", width = 9),
@@ -146,13 +114,34 @@ univariate <- function(df) {
     format("Median", justify = "right", width = 9),
     format("Outlier<", justify = "centre", width = 8),
     format(">Outlier", justify = "centre", width = 8),
-    format("Kurtosis", justify = "right", width = 8),
-    format("Skewness", justify = "right", width = 8))
+    format("Skewness", justify = "right", width = 8),
+    format("nZV", justify = "centre", width = 3),
+    format("ACF1", justify = "right", width = 4))
+
+  nzv_cols <- nearZeroVar(df, freqCut = 19, uniqueCut = 10, saveMetrics = FALSE, names = FALSE)
+
+  for (x in 1:ncol(df)) {
+    col <- row.names(ua)[x]
+    ua[x, 12] <- format(ifelse(x %in% nzv_cols, "Y", "N"),
+                        justify = "centre", width = 3, format = "s")
+
+    tryCatch({
+        acf <- Acf(df[col], lag.max = 1, type = "correlation", plot = FALSE, level = 95)[[1]][2]
+      }
+      , error = function(e) { acf <- 0 }
+      , warning = function(e) { acf <- 0 }
+      , finally = {
+          ua[x, 13] <- formatC(nan_replace_0(acf), digits = 1, width = 4, format = "f", zero.print = FALSE)
+      }
+    )
+  }
+
   row.names(ua) <- lapply(row.names(ua),
                           function(x) if (nchar(x) > 20) return(paste(substr(x, 1, 17), "...", sep = ""))
                           else return(x))
+
   { cat(
-    "Summary Univariate Analysis (",
+    "Summary Univariate Analysis for ", df_name, " (",
     formatC(rowcount, big.mark = ","), " observations)\n",
     sep = "")
     print(noquote(ua))
@@ -160,13 +149,33 @@ univariate <- function(df) {
 }
 ```
 
-```{r data_profiling}
+
+### Data Load and Validation
+
+```{r data_load_validation}
+# Load dataset(s); assumes folder structure with data parallel to src
+train_df <- read.csv("../data/train.csv", header = TRUE)
+test_df <- read.csv("../data/test.csv", header = TRUE)
+stores_df <- read.csv("../data/stores.csv", header = TRUE)
+oil_df <- read.csv("../data/oil.csv", header = TRUE)
+events_df <- read.csv("../data/holidays_events.csv", header = TRUE)
+
+# Data validation and understanding, including structure, content, and statistical characteristics covered below
+```
+
+
+### Univariate Analysis and Data Preparation
+
+###### Data Profiling
+
+```{r data_profiling, class.output="output_small"}
 # e.g., statistical characteristics (including distribution, skewness, outliers)
-univariate(train_df)
-univariate(test_df)
-univariate(stores_df)
-univariate(oil_df)
-univariate(events_df)
+#   +[optionally] review sample observations
+univariate(train_df); head(train_df, 3); #str(train_df)
+#univariate(test_df); head(test_df, 3); #str(test_df)
+#univariate(stores_df); head(stores_df, 3); #str(stores_df)
+#univariate(oil_df); head(oil_df, 3); #str(oil_df)
+#univariate(events_df); head(events_df, 3); #str(events_df)
 ```
 
 
@@ -180,6 +189,50 @@ univariate(events_df)
 
 
 ###### Data Types (confirm/update)
+
+```{r data_types}
+# Convert string mm/dd/yyyy to Date values and confirm sort
+train_df <- (train_df %>%
+               mutate(date = as.Date(date, format = "%Y-%m-%d")) %>%
+               arrange(date))
+```
+
+
+###### [. . .]
+
+```{r}
+# Create overall time series
+begin_date <- head(train_df$date, 1)
+end_date <- tail(train_df$date, 1)
+train_ts <- ts(train_df$sales,
+               start = c(year(begin_date), week(begin_date)),
+               end = c(year(end_date), week(end_date)), freq = 52)
+
+# Plot overall time series
+plot(train_ts, type = "l",
+     main = "Time Series for All Product Families",
+     xlab = TeX(r"(\textbf{Date (\textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} )"),
+     las = 1, cex.axis = 0.8)
+
+opar = par()
+par(mfrow = c(1, 3))
+
+for (f in unique(test_df$family)) {
+  # Subset data by product family and create time series
+  df <- filter(train_df, family == f)
+  df_ts <- ts(df$sales,
+              start = c(year(begin_date), week(begin_date)),
+              end = c(year(end_date), week(end_date)), freq = 52)
+
+  # Plot time series
+  plot(df_ts, type = "l",
+       main = paste("Time Series for ", f, sep = ""),
+       xlab = TeX(r"(\textbf{Date (\textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} )"),
+       las = 1, cex.axis = 0.7)
+}
+
+par(opar)
+```
 
 
 ###### Data Enrichment

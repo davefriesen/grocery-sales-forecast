@@ -63,7 +63,8 @@ li {
 }
 
 .source {line-height: 1.3em; background: #f9f9f9; border: 1px solid #777777;}
-.output { line-height: 1.3em; background: white; border: 3px solid #007b43;}
+.output {line-height: 1.3em; background: white; border: 3px solid #007b43;}
+.output_small {font-size: 1.3em; line-height: 1.3em; background: white; border: 3px solid #007b43;}
 
 .footnotes-end-of-document {
   padding-top: 2.9em;
