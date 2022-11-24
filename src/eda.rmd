@@ -1,0 +1,353 @@
+---
+title: "Grocery Sales Forecast"
+author:
+  Christine Vu^[University of San Diego, cvu@sandiego.edu], Dave Friesen^[University of San Diego, dfriesen@sandiego.edu]
+date: "12/12/2022"
+geometry: "left=2cm,right=2cm,top=2cm,bottom=2cm"
+output:
+  html_document:
+    css: "style.css"
+  pdf_document: default
+---
+
+<style>
+.main-container {
+  max-width: 1024px;
+}
+</style>
+
+
+### Objective and Hypothesis
+
+#### [. . .]
+
+
+```{r setup, echo = FALSE, message = FALSE}
+# Load R libraries
+library(e1071)
+library(readr)
+library(RTextTools)
+library(readxl)
+library(ggplot2)
+library(plotly)
+library(forecast)
+library(dplyr)
+library(tidyr)
+library(zoo)
+
+# Expand output width and minimize exp notation
+options(width = 150)
+options(scipen = 100)
+options(digits = 1)
+
+# Set style defaults
+knitr::opts_chunk$set(class.source = "source")
+knitr::opts_chunk$set(class.output = "output")
+knitr::opts_chunk$set(fig.width = 10, fig.height = (10 * .45), fig.align = "center")
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(comment = NA)
+```
+
+
+### Data Load and Validation
+
+```{r data_load_validation}
+# Load dataset(s); assumes folder structure with data parallel to src
+train_df <- read.csv("/Users/christinevu/Downloads/train.csv", header = TRUE)
+test_df <- read.csv("/Users/christinevu/Downloads/test.csv", header = TRUE)
+stores_df <- read.csv("/Users/christinevu/Downloads/stores.csv", header = TRUE)
+oil_df <- read.csv("/Users/christinevu/Downloads/oil.csv", header = TRUE)
+events_df <- read.csv("/Users/christinevu/Downloads/holidays_events.csv", header = TRUE)
+
+# Data validation and understanding, including structure, content, and statistical characteristics covered below
+```
+
+
+###### Data Structure Review
+
+```{r data_structure_review}
+# Summarize base datasets
+str(train_df)
+str(test_df)
+str(stores_df)
+str(oil_df)
+str(events_df)
+
+# [Optionally] review sample observations
+head(train_df, 5)
+head(test_df, 5)
+head(stores_df, 5)
+head(oil_df, 5)
+head(events_df, 5)
+```
+
+
+### Univariate Analysis and Data Preparation
+
+
+###### Data Profiling
+
+```{r data_univariate, echo = FALSE}
+# Note this function is generic and doesn't look for more intelligent "blank" values like "no record",
+#   "not available", etc.
+is_blank <- function(x) {
+  classof_x <- class(x)
+  result <-
+    !is.na(x) &
+    (((classof_x == "character") & (x == "")) |
+     ((classof_x %in% c("integer", "numeric")) & (x == 0)))
+  return(result)
+}
+
+# Function to format percentages (only when value exists)
+format_percent <- function(x) {
+  result <- formatC(x * 100, digits = 0, width = 5, format = "d", zero.print = FALSE)
+  if (round(x, 0.5) != 0) result <- paste(result, "%", sep = "")
+  return(result)  
+}
+
+# Function to not output NaNs from third-party functions in lapply() below
+nan_replace_0 <- function(x) {
+  if (is.nan(x)) result <- 0 else result = x
+  return(result)
+}
+
+# Function to Generate a summary of base dataset
+univariate <- function(df) {
+  rowcount <- nrow(df)
+  ua <- do.call(rbind, lapply(df, function(x) c(
+    colnames(x),
+    class(x),
+    format_percent(sum(is.na(x)) / rowcount),
+    format_percent(sum(is_blank(x)) / rowcount),
+    formatC(length(unique(na.omit(x))),
+            digits = 0, width = 9, format = "d", big.mark = ",", zero.print = FALSE),
+    formatC(ifelse(is.numeric(x), min(na.omit(x)), 0),
+            digits = 0, width = 9, format = "f", big.mark = ",", zero.print = FALSE),
+#            digits = ifelse(is.double(x), 3, 0), width = 9, format = "f", big.mark = ",", zero.print = FALSE),
+    formatC(ifelse(is.numeric(x), max(na.omit(x)), 0),
+            digits = 0, width = 9, format = "f", big.mark = ",", zero.print = FALSE),
+#            digits = ifelse(is.double(x), 3, 0), width = 9, format = "f", big.mark = ",", zero.print = FALSE),
+    formatC(ifelse(is.double(x), mean(na.omit(x)), 0),
+            digits = 0, width = 9, format = "f", big.mark = ",", zero.print = FALSE),
+#            digits = 3, width = 9, format = "f", big.mark = ",", zero.print = FALSE),
+    formatC(ifelse(is.numeric(x), median(na.omit(x)), 0),
+            digits = 0, width = 9, format = "f", big.mark = ",", zero.print = FALSE),
+#            digits = ifelse(is.double(x), 3, 0), width = 9, format = "f", big.mark = ",", zero.print = FALSE),
+    format(ifelse(is.numeric(x),
+           ifelse(na.omit(x) < (quantile(na.omit(x), 0.25) - (1.5 * IQR(na.omit(x)))), "Yes", "No"), ""),
+           justify = "centre", width = 8, format = "s"),
+    format(ifelse(is.numeric(x),
+           ifelse(na.omit(x) > (quantile(na.omit(x), 0.75) - (1.5 * IQR(na.omit(x)))), "Yes", "No"), ""),
+           justify = "centre", width = 8, format = "s"),
+    formatC(ifelse(is.numeric(x), nan_replace_0(skewness(na.omit(x))), 0),
+            digits = 2, width = 8, format = "f", zero.print = FALSE),
+    formatC(ifelse(is.numeric(x), nan_replace_0(kurtosis(na.omit(x))), 0),
+            digits = 2, width = 8, format = "f", zero.print = FALSE))))
+  colnames(ua) <- c(
+    "Type",
+    format("NA", justify = "right", width = 6),
+    format("BlankZ", justify = "right", width = 6),
+    format("Unique", justify = "right", width = 9),
+    format("Min", justify = "right", width = 9),
+    format("Max", justify = "right", width = 9),
+    format("Mean", justify = "right", width = 9),
+    format("Median", justify = "right", width = 9),
+    format("Outlier<", justify = "centre", width = 8),
+    format(">Outlier", justify = "centre", width = 8),
+    format("Kurtosis", justify = "right", width = 8),
+    format("Skewness", justify = "right", width = 8))
+  row.names(ua) <- lapply(row.names(ua),
+                          function(x) if (nchar(x) > 20) return(paste(substr(x, 1, 17), "...", sep = ""))
+                          else return(x))
+  { cat(
+    "Summary Univariate Analysis (",
+    formatC(rowcount, big.mark = ","), " observations)\n",
+    sep = "")
+    print(noquote(ua))
+  }
+}
+```
+
+```{r data_profiling}
+# e.g., statistical characteristics (including distribution, skewness, outliers)
+univariate(train_df)
+univariate(test_df)
+univariate(stores_df)
+univariate(oil_df)
+univariate(events_df)
+```
+
+```{r}
+# Data summary statistics
+summary(train_df)
+summary(test_df)
+summary(stores_df)
+summary(oil_df)
+summary(events_df)
+```
+
+```{r}
+# Proportion by family
+fam_prop <- train_df %>%
+              group_by(family) %>%
+              summarise(Mean_Sales = round(mean(sales, na.rm = TRUE), 2),
+                        Median_Sales = round(median(sales, na.rm = TRUE), 2),
+                        Maximum_Sales = max(sales),
+                        IQR_Sales = IQR(sales),
+                        Total_Sales = sum(sales))
+
+fam_prop
+```
+
+```{r}
+# Box plot: Mean of store sales by family
+fam_plot <- ggplot(fam_prop) +
+            geom_col(aes(x = family, y = Mean_Sales, fill = family)) +
+            theme(axis.ticks.x = element_blank(),
+                  axis.text.x = element_blank()) +
+            labs(title = "Average Store Sales by Family",
+                 x = "Family of Product",
+                 y = "Average of Daily Sales",
+                 legend = "Family of Product Sold",
+                 bty = "l")
+
+ggplotly(fam_plot)
+```
+
+```{r}
+# Box plot: Total store sales by family
+fam_plot2 <- ggplot(fam_prop) +
+             geom_col(aes(x = family, y = Total_Sales, fill = family)) +
+             theme(axis.ticks.x = element_blank(),
+                   axis.text.x = element_blank()) +
+             labs(title = "Total Store Sales by Family",
+                  x = "Family of Product",
+                  y = "Average of Daily Sales",
+                  legend = "Family of Product Sold",
+                  bty = "l")
+
+ggplotly(fam_plot2)
+```
+
+
+###### Preliminary Feature Reduction (clearly n/a to Objective and Hypothesis)
+
+
+###### Attribute Names (confirm/update)
+
+
+###### Target and Feature Identification (preliminary)
+
+
+###### Data Types (confirm/update)
+```{r}
+lapply(train_df, class)
+lapply(test_df, class)
+lapply(stores_df, class)
+lapply(oil_df, class)
+lapply(events_df, class)
+```
+
+
+###### Time Series Objects
+```{r}
+# Convert data to time series objects
+train.ts <- ts(train_df$sales, start = c(1, 1), freq = 52)
+test.ts <- ts(test_df$family, start = c(1, 1), freq = 52)
+stores.ts <- ts(stores_df$cluster, start = c(1, 1), freq = 52)
+oil.ts <- ts(oil_df$dcoilwtico, start = c(1, 1), freq = 52)
+#events.ts <- ts(holiday_events$sales, start = c(1, 1), freq = 52)
+```
+
+
+###### Data Enrichment
+
+
+###### Categorical Data Profiling
+
+
+### Data Partitioning
+```{r}
+# Count rows
+nrow(train_df)
+nrow(test_df)
+
+# Count columns
+ncol(train_df)
+ncol(test_df)
+```
+
+
+### Additional Uni/Multivariate EDA and Feature Engineering/Selection
+
+
+###### Missing/null values (find/impute/drop)
+```{r}
+# Count missing values
+sum(is.na(train_df))
+sum(is.na(test_df))
+sum(is.na(stores_df))
+sum(is.na(oil_df))
+sum(is.na(events_df))
+```
+
+```{r}
+# Mean of missing oil_df data
+mean(is.na(oil_df))
+
+# Option: Drop missing records since they only account for 2% of data
+# na.omit(oil_df)
+```
+
+```{r}
+# oil_df2: New 'oil_df' data frame without missing values
+# Foward and backward fill for missing values
+oil_df2 <- na.locf(oil_df, fromLast = TRUE)
+
+# Confirm oil_df2 has no more missing values
+sum(is.na(oil_df2))
+```
+
+
+###### Categorical features (encoding)
+
+
+###### Outliers (convert/drop)
+```{r}
+# Box plot: oil_df2
+ggplot(oil_df2) +
+  aes(x = "", y = dcoilwtico) + geom_boxplot(fill = "#0c4c8a") +
+  theme_minimal() + labs(title = "Oil Box Plot", x = "", y = "Oil Price")
+```
+
+###### Zero/Near-Zero Variances (find/address)
+
+
+###### Centering/scaling (standardizing/normalizing)
+
+
+###### Collinearity and Dependencies (find/address)
+
+
+###### "Noisy"/duplicate data (find/convert/drop)
+
+
+### Data Mining (Unsupervised)
+
+
+### Modeling
+
+
+###### Final Feature Selection
+
+
+###### Model Setup (Selection)
+
+
+###### Model Run and Evaluation (Iteration n)
+
+
+###### Optimization, Tuning, Selection
+
