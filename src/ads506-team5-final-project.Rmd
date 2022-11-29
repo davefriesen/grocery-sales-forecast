@@ -19,12 +19,33 @@ output:
 
 ### Define Goal
 
+---
+
+* Apply advanced forecasting techniques to "grocery" sales.
+* Demonstrate data-driven and model-based approches across product families complimentary with a "typical" grocery store chain.
+* Establish, in practical terms, the feasibility of using one or more forecasting appraoches in a real-world scenario to support optimal pricing, inventory management, timely promotion, optimal staffing, and other retain grocery objectives.
+<br><br>
+* __[Descriptive Goal? (18)] [Predictive Goal? (18)]__ - *Add more specifically to these types of forecasting?*
+* __[Forecast Horizon? (20)] [Forecast Use? (21)]__ - *Add more detail (here or below in forecasting section)?*
+* __[Level of Automation? (21, 72)]__ - *Address here as part of overall goal, or elsewhere?*
+
+---
+
 
 ```{r setup, echo = FALSE, message = FALSE}
-# Load R libraries
+# Load basic libraries
 library(dplyr)
-library(lubridate)
+
+# Load visualization libraries
+
+# Load EDA libraries
+
+# Load model and performance evaluation libraries
+library(zoo)
 library(forecast)
+
+# Load utility libraries
+library(lubridate)
 library(latex2exp)
 
 # Expand output width and minimize exp notation
@@ -43,11 +64,6 @@ knitr::opts_chunk$set(comment = NA)
 
 
 ```{r data_univariate, echo = FALSE}
-# Load R libraries required by this function set
-library(caret)  # nearZeroVar function
-library(e1071)  # skewness function
-library(forecast)  # time-series forecasting
-
 # Note this function is generic and doesn't look for more intelligent "blank" values like "no record",
 #   "not available", etc.
 is_blank <- function(x) {
@@ -72,6 +88,18 @@ nan_replace_0 <- function(x) {
   return(result)
 }
 
+# Function to check if a valid date across types
+is_any_date <- function(x) {
+  is <- (class(x) == "Date")
+  if (!is & is.character(x)) {
+    tryCatch({ is <- is.Date(as.Date(x)) }
+      , error = function(e) { }
+      , warning = function(e) { }
+    )
+  }
+  return(is)
+}
+
 # Function to Generate a summary of base dataset
 univariate <- function(df, df_name = deparse(substitute((df)))) {
   rowcount <- nrow(df)
@@ -83,6 +111,8 @@ univariate <- function(df, df_name = deparse(substitute((df)))) {
     format_percent(sum(is_blank(x)) / rowcount),
     formatC(length(unique(na.omit(x))),
             digits = 0, width = 9, format = "d", big.mark = "", zero.print = FALSE),
+    formatC(0,
+            digits = 0, width = 4, format = "f", big.mark = "", zero.print = FALSE),
     formatC(ifelse(is.numeric(x), min(na.omit(x)), 0),
             digits = ifelse(is.double(x), 1, 0), width = 9, format = "f", big.mark = "", zero.print = FALSE),
     formatC(ifelse(is.numeric(x), max(na.omit(x)), 0),
@@ -97,16 +127,18 @@ univariate <- function(df, df_name = deparse(substitute((df)))) {
     format(ifelse(is.numeric(x),
            ifelse(na.omit(x) > (quantile(na.omit(x), 0.75) - (1.5 * IQR(na.omit(x)))), "Yes", "No"), ""),
            justify = "centre", width = 8, format = "s"),
-    formatC(ifelse(is.numeric(x), nan_replace_0(skewness(na.omit(x))), 0),
+    formatC(ifelse(is.numeric(x), nan_replace_0(e1071::skewness(na.omit(x))), 0),
             digits = 1, width = 8, format = "f", zero.print = FALSE),
     "",
-    0.0)))
+    formatC(0,
+            digits = 0, width = 4, format = "f", big.mark = "", zero.print = FALSE))))
 
   colnames(ua) <- c(
     "Type",
     format("NA%", justify = "right", width = 6),
     format("Blank%", justify = "right", width = 6),
     format("Unique", justify = "right", width = 9),
+    format("Freq", justify = "right", width = 4),
     format("Min", justify = "right", width = 9),
     format("Max", justify = "right", width = 9),
     format("Mean", justify = "right", width = 9),
@@ -117,20 +149,26 @@ univariate <- function(df, df_name = deparse(substitute((df)))) {
     format("nZV", justify = "centre", width = 3),
     format("ACF1", justify = "right", width = 4))
 
-  nzv_cols <- nearZeroVar(df, freqCut = 19, uniqueCut = 10, saveMetrics = FALSE, names = FALSE)
+  nzv_cols <- caret::nearZeroVar(df, freqCut = 19, uniqueCut = 10, saveMetrics = FALSE, names = FALSE)
 
   for (x in 1:ncol(df)) {
     col <- row.names(ua)[x]
-    ua[x, 12] <- format(ifelse(x %in% nzv_cols, "Y", "N"),
+
+    ua[x, 5] <- formatC(ifelse(is_any_date(df[[col]]),
+                               as.integer(difftime(max(as.Date(df[[col]])), min(as.Date(df[[col]])), units = c("days"))) /
+                               length(unique(df[[col]])), 0),
+                        digits = 0, width = 4, format = "f", big.mark = "", zero.print = FALSE)
+
+    ua[x, 13] <- format(ifelse(x %in% nzv_cols, "Y", "N"),
                         justify = "centre", width = 3, format = "s")
 
     tryCatch({
-        acf <- Acf(df[col], lag.max = 1, type = "correlation", plot = FALSE, level = 95)[[1]][2]
+        acf <- forecast::Acf(df[col], lag.max = 1, type = "correlation", plot = FALSE, level = 95)[[1]][2]
       }
       , error = function(e) { acf <- 0 }
       , warning = function(e) { acf <- 0 }
       , finally = {
-          ua[x, 13] <- formatC(nan_replace_0(acf), digits = 1, width = 4, format = "f", zero.print = FALSE)
+          ua[x, 14] <- formatC(nan_replace_0(acf), digits = 1, width = 4, format = "f", zero.print = FALSE)
       }
     )
   }
@@ -151,6 +189,8 @@ univariate <- function(df, df_name = deparse(substitute((df)))) {
 
 ### Get Data
 
+Reference: [https://www.kaggle.com/competitions/store-sales-time-series-forecasting/data?select=transactions.csv]
+
 ```{r}
 # Load dataset(s); assumes folder structure with data parallel to src
 sales_df <- read.csv("../data/train.csv", header = TRUE)
@@ -165,6 +205,9 @@ events_df <- read.csv("../data/holidays_events.csv", header = TRUE)
 
 ### Explore & Visualize Series
 
+
+###### Univariate Analysis and Preliminary Pre-Processing
+
 ```{r, class.output="output_small"}
 # e.g., statistical characteristics (including distribution, skewness, outliers)
 #   +[optionally] review sample observations
@@ -175,11 +218,32 @@ univariate(oil_df); head(oil_df, 3); #str(oil_df)
 univariate(events_df); head(events_df, 3); #str(events_df)
 ```
 
+---
+
+* __[commentary on data usage - e.g., test data as provided adds no value?]
+
+---
+
 ```{r}
 # Convert string mm/dd/yyyy to Date values and confirm sort
 sales_df <- (sales_df %>%
                mutate(date = as.Date(date, format = "%Y-%m-%d"),) %>%
                arrange(date))
+```
+
+
+###### Series Visualization - All Product Families
+
+```{r}
+# Aggregate base dataframe by date (i.e., sum all product lines) and initlally plot series at
+#   provided time granularity
+sales_agg_df <- as.data.frame(sales_df %>%
+                                group_by(date) %>%
+                                summarize(sales = sum(sales / 1000.0)))
+plot(x = sales_agg_df$date, y = sales_agg_df$sales, type = "l",
+     main = "Store Sales for All Product Families | Daily | All Dates",
+     xlab = TeX(r"(\textbf{Date (daily \textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} (000) )"),
+     las = 1, cex.axis = 0.7)
 ```
 
 ```{r}
@@ -200,35 +264,54 @@ sales_ts <- ts(sales_wk_df$sales,
 
 # Plot overall time series with trend line
 plot(sales_ts, type = "l",
-     main = "Store Sales for All Product Families | All Dates",
+     main = "Store Sales for All Product Families | Weekly | All Dates",
      xlab = TeX(r"(\textbf{Date (weekly \textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} (000) )"),
      las = 1, cex.axis = 0.7)
 
 sales_lm <- tslm(sales_ts ~ trend + I(trend^2))
-lines(sales_lm$fitted, lwd = 2, lty = 1, col = "orange")
+lines(sales_lm$fitted, lwd = 2, lty = 1, col = "red")
 
+legend("bottomright",
+       legend = c("Trend Line"),
+       col = c("red"),
+       lwd = 2, lty = 1.2, cex = 0.8,
+       box.lty = 0, text.col = "red")
+```
+
+```{r}
 # Plot overall time series w/log scale
 plot(sales_ts, type = "l",
-     main = "Store Sales for All Product Families | All Dates | Log Scale",
+     main = "Store Sales for All Product Families | Weekly | All Dates | Log Scale",
      xlab = TeX(r"(\textbf{Date (weekly \textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} (000) )"),
      las = 1, cex.axis = 0.7,
      log = "y")
+```
 
+```{r}
 # Plot zoomed time series with trend line
 sales_zoom_ts <- window(sales_ts, start = c(sales_end_year, 1), end = c(sales_end_year, 13))
 plot(sales_zoom_ts, type = "l",
-     main = "Store Sales for All Product Families | One Quarter",
+     main = "Store Sales for All Product Families | Weekly | One Quarter",
      xlab = TeX(r"(\textbf{Date (weekly \textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} (000) )"),
      xaxt = "n",
      las = 1, cex = 0.7)
 
 sales_zoom_lm <- tslm(sales_zoom_ts ~ trend + I(trend^2))
-lines(sales_zoom_lm$fitted, lwd = 2, lty = 1, col = "orange")
+lines(sales_zoom_lm$fitted, lwd = 2, lty = 1, col = "red")
 
 axis(1, at = as.numeric(time(sales_zoom_ts)), labels = seq(sales_zoom_ts))
+
+legend("bottomright",
+       legend = "Trend Line",
+       col = "red",
+       lwd = 2, lty = 1.2, cex = 0.8,
+       box.lty = 0, text.col = "red")
 ```
 
-```{r}
+
+###### Series Visualization - Individual Product Families
+
+```{r fig.height=3}
 # Aggregate base dataframe from daily to weekly by product family
 sales_wk_df <- as.data.frame(sales_df %>%
                                mutate(year = year(date), week = week(date)) %>%
@@ -248,6 +331,9 @@ for (f in unique(sales_wk_df$family)) {
   # Plot time series
   plot(df_ts, type = "l",
        main = paste("Store Sales for ", f, " | All Dates", sep = ""),
+       
+       height = 0.8,
+       
        xlab = TeX(r"(\textbf{Date (weekly \textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} (000) )"),
        las = 1, cex.axis = 0.7)
 }
@@ -255,11 +341,111 @@ for (f in unique(sales_wk_df$family)) {
 par(opar)
 ```
 
+---
+
+* __[Visualizing? (30)] [Zooming In? (30)]__ - The above figures visualize the provided grocery store sales series across different frequencies, grains, and windows, with highlighted trend lines.
+<br><br>
+* __[Temporal Frequency? (26)]__ - Series data is provided at a daily frequency. However, for purposes of forecasting to project goals, we are choosing to aggregate to a lower frequency of weekly?
+* __[Series Granularity? (27)]__ - Series grain includes store numbers and individual product families. Grocery chain sub-goals may have different requirements for this grain. For example, optimal pricing, inventory management, and timely promotion may benefit from product family detail, while optimal staffing may benefit from store number. For the purposes of this project, we are focusing on overall forecasting - i.e., aggregated above individual store and product family - knowing that patterns appear similar and project work can be taken to a new level of detail in the future? 
+* __[Series Granularity / Product Families]__ - The above analysis highlights product families or categories that appear *adjacent* - i.e., not "core" - to the grocery business. Some of these families, e.g., books, celebration, or home appliances were introduced at different times and may be "opportunistic" or pilot families. Given this, the project is removing a subset of these types of product families in favor of basic grocery families. *(Does this also get to [domain expertise? (27)]?)*
+<br><br>
+* __[Time Series Components? (28)]__ - Store sales at daily and weekly frequencies, across and within individual product families, exhibit systematic components of [average] level (by default), trend (changes from one period to the next), and seasonality, or cyclical behavior. Of course, all include non-systematic "noise."
+
+---
+
 
 ### Pre-Process Data
 
+---
+
+* __[Data Qualty? (25)]__ - *Not seeing major issues?*
+* __[Missing Values? (39)]__ - *Not seeing major issues?*
+* __[Unequally Spaced Series? (40)]__ - *Not seeing major issues?*
+* __[Extreme Values? (40)]__ - *Not seeing major issues?*
+
+---
+
+```{r}
+# Placeholder code to emove rows with NAs
+#df %>%
+#  na.omit()
+
+# Placeholder code to remove rows with NAs in specific column
+#df %>%
+#  filter(!is.na(column_name))
+
+# Placeholder code to reemove duplicates
+#df %>%
+#  distinct()
+
+# Placeholder code to remove rows by index position
+#df %>%
+#  filter(!row_number() %in% c(1, 2, 4))
+
+# Remove rows not considered "core"
+keep_families <- c("BEAUTY", "BEVERAGES", "BREAD/BAKERY", "CLEANING", "DAIRY",
+                   "DELI", "EGGS", "FROZEN FOODS", "GROCERY", "GROCERY II", "HARDWARE",
+                   "LIQUOR,WINE,BEER", "MEATS", "PERSONAL CARE", "PET SUPPLIES", "POULTRY",
+                   "PREPARED FOODS", "PRODUCE", "SEAFOOD")
+remove_families <- c("AUTOMOTIVE", "BABY CARE", "BOOKS", "CELEBRATION", "HOME APPLIANCES",
+                     "HOME AND KITCHEN I", "HOME AND KITCHEN II", "HOME CARE", "LADIESWEAR",
+                     "LAWN AND GARDEN", "LINGERIE", "MAGAZINES", "PET SUPPLIES",
+                     "PLAYERS AND ELECTRONICS", "SCHOOL AND OFFICE SUPPLIES")
+sales_core_df <- (sales_df %>%
+                    filter(family %in% keep_families))
+```
+
+
+###### Series Visualization - Select ("Core") Product Families
+
+```{r}
+# Re-aggregate base dataframe from daily to weekly for all product families
+sales_wk_df <- as.data.frame(sales_core_df %>%
+                               mutate(year = year(date), week = week(date)) %>%
+                               group_by(year, week) %>%
+                               summarize(sales = sum(sales / 1000.0)))
+
+# Re-create overall time series
+sales_begin_year <- head(sales_wk_df$year, 1)
+sales_begin_week <- head(sales_wk_df$week, 1)
+sales_end_year <- tail(sales_wk_df$year, 1)
+sales_end_week <- tail(sales_wk_df$week, 1)
+sales_ts <- ts(sales_wk_df$sales,
+               start = c(sales_begin_year, sales_begin_week),
+               end = c(sales_end_year, sales_end_week), freq = 52)
+
+# Plot overall time series with moving averages
+plot(sales_ts, type = "l",
+     main = "Store Sales for Select Product Families | Weekly | All Dates",
+     xlab = TeX(r"(\textbf{Date (weekly \textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} (000) )"),
+     las = 1, cex.axis = 0.7)
+
+sales_l_ma <- rollmean(sales_ts, k = 12, align = "right")
+sales_c_ma <- ma(sales_ts, order = 12)
+lines(sales_l_ma, lwd = 2, lty = 2, col = "blue")
+lines(sales_c_ma, lwd = 2, lty = 1, col = "red")
+
+legend("bottomright",
+       legend = c("Right Moving Average", "Centered Moving Average"),
+       col = c("blue", "red"),
+       lwd = 2, lty = c(2, 1), cex = 0.8,
+       box.lty = 0, text.col = c("blue", "red"))
+```
+
+---
+
+* __[Centered Moving Average Smoothing Method? (80)] [Choosing Window Width? (83)]__ - The above figure provides a view of the overall time series, aggregated to weekly, for select "core grocery chain" product families. The centered and trailing moving average lines are illustrative and not intended for forecasting given trend and seasonality components. Note also that these use a window width of monthly, again, for smoothing visualizlation (series understanding) only.
+
+---
+
 
 ### Partition Series
+
+---
+
+* __[Temporal Data Partitioning? (45-46)] [Choosing the Validation Period (48)] [Fixed Partition? (65)] [choice of time span? (41)]__ - Given an overall series span of over five years, the series is temporaly partitioned with a fixed validation period of one year. The balance of series data is segmented for training (with the full series span appearing relevant to future forecasts). The one year validation span was chosen based in part on the trend and seasonal natures of the grocery business, as previously highlighted in preliminary analysis, and the possibility need for a forecast horizon of up to one year.
+
+---
 
 ```{r}
 # Use one year (52 weeks) as validation period (representative set of quarters, seasons)
@@ -269,13 +455,145 @@ sales_n_train <- length(sales_ts) - sales_n_valid
 # Split data into training and validation periods
 sales_train_ts <- window(sales_ts, start = c(sales_begin_year, 1), end = c(sales_begin_year, sales_n_train))
 sales_valid_ts <- window(sales_ts, start = c(sales_begin_year, sales_n_train + 1), end = c(sales_begin_year, sales_n_train + sales_n_valid))
+
+# Set x axis values based on ts ranges
+x_train <- sales_begin_year
+x_valid <- sales_begin_year + ((sales_n_train + 1) / 52)
+x_future <- x_valid + ((sales_n_valid + 1) / 52)
 ```
 
 
 ### Apply Forecasting Method(s)
 
+---
+
+* __[Model-Based vs. Data-Driven (69)]__ -
+
+---
+
+
+###### Naive Forecast Baseline
+
+---
+
+* __[Naive Forecasts (50)]__ -
+
+---
+
+```{r}
+# Fit seasonal naive model
+sales_snaive_pred <- snaive(sales_train_ts, h = sales_n_valid)
+
+# Summarize seasonal naive forecast results
+accuracy(sales_snaive_pred, sales_valid_ts)
+
+# Plot seasonal naive forecaster
+ymax <- max(sales_ts) * 1.5
+xmax <- x_future + 1
+
+plot(sales_snaive_pred, type = "l",
+     main = "Store Sales for Select Product Families | Weekly | Seasonal Naive Forecaster",
+     xlab = TeX(r"(\textbf{Date (weekly \textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} (000) )"),
+     las = 1, cex.axis = 0.7,
+     xlim = c(x_train, xmax), ylim = c(0, ymax))
+
+# Add additional lines
+lines(sales_valid_ts, lwd = 2, col = "red")
+
+# Add plot defintions
+lines(c(x_train, x_train), c(0, ymax), lwd = 3, lty = 3)
+lines(c(x_valid, x_valid), c(0, ymax), lwd = 3, lty = 3)
+lines(c(x_future, x_future), c(0, ymax), lwd = 3, lty = 3)
+
+text(x_train + ((x_valid - x_train) * 0.5), ymax, "Training", font = 2, cex = 0.7)
+text(x_valid + ((x_future - x_valid) * 0.5), ymax, "Validation", font = 2, cex = 0.7)
+text(x_future + 0.5, ymax, "Future", font = 2, cex = 0.7)
+
+legend("bottomright",
+       legend = c("Forecast", "Actual"),
+       col = c("blue", "red"),
+       lwd = 2, lty = 1, cex = 0.8,
+       box.lty = 0, bg = NULL, text.col = c("blue", "red"))
+```
+
+---
+
+* __[MAPE, as average deviation from forecast to actual]__ -
+* __[RMSE, as average "distance" from actual]__ -
+
+---
+
+
+###### Data-Driven: Smoothing Methods
+
+---
+
+* __[Trailing Moving Average Smoothing Method? (81)]__ -
+* __[Choosing Window Width (83)]__ -
+<br><br>
+* __[Differencing? (85)]__ -
+* __[Removing Trend? (85)]__ -
+* __[Removing Seasonality? (87)]__ -
+* __[Removing Trend and Seasonality? (87)]__ -
+<br><br>
+* __[Simple Exponential Smoothing? (87)]__ -
+* __[Advanced Exponential Smoothing? (90)]__ -
+<br><br>
+* __[Measuring Predictive Accuracy (51++)]__ -
+
+---
+
+
+###### Model-Driven: Regression
+
+---
+
+* __[Regression Model with Trend? (117)]__ -
+* __[Regression Model with Seasonality? (125)]__ -
+* __[Regression Model with Trend and Seasonality? (129)]__ -
+<br><br>
+* __[Measuring Predictive Accuracy (51++)]__ -
+
+---
+
+
+###### Model-Driven: Regression w/Autocorrelation and External Information
+
+---
+
+* __[Autocorrelation? (143)]__ -
+* __[ARIMA Model? (147)]__ -
+<br><br>
+* __[External Information (70)]__ - [consider causal/correlated?]
+* __[Including External Information? (154)]__ -
+
+---
+
+
+###### Model-Driven: Opportunities
+
+---
+
+* __[Combining Methods and Ensembles (73)]__ -
+
+---
+
 
 ### Evaluate & Compare Performance
 
+---
+
+* __[Comparing Two Models? (65)]__ -
+* __[Evaulating Predictability? (153)]__ -
+
+---
+
 
 ### Implement Forecasts/System
+
+---
+
+* __[Joining Partitions for Forecasting (47)]__ -
+* __[Creating Forecasts from the Chosen Model? (132)]__ -
+
+---
