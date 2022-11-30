@@ -37,6 +37,7 @@ output:
 library(dplyr)
 
 # Load visualization libraries
+library(grDevices)
 
 # Load EDA libraries
 
@@ -241,7 +242,7 @@ sales_agg_df <- as.data.frame(sales_df %>%
                                 group_by(date) %>%
                                 summarize(sales = sum(sales / 1000.0)))
 plot(x = sales_agg_df$date, y = sales_agg_df$sales, type = "l",
-     main = "Store Sales for All Product Families | Daily | All Dates",
+     main = "Store Sales for All Product Families  |  Daily  |  All Dates",
      xlab = TeX(r"(\textbf{Date (daily \textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} (000) )"),
      las = 1, cex.axis = 0.7)
 ```
@@ -264,7 +265,7 @@ sales_ts <- ts(sales_wk_df$sales,
 
 # Plot overall time series with trend line
 plot(sales_ts, type = "l",
-     main = "Store Sales for All Product Families | Weekly | All Dates",
+     main = "Store Sales for All Product Families  |  Weekly  |  All Dates",
      xlab = TeX(r"(\textbf{Date (weekly \textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} (000) )"),
      las = 1, cex.axis = 0.7)
 
@@ -275,13 +276,13 @@ legend("bottomright",
        legend = c("Trend Line"),
        col = c("red"),
        lwd = 2, lty = 1.2, cex = 0.8,
-       box.lty = 0, text.col = "red")
+       box.lty = 0, bg = NULL, text.col = "red")
 ```
 
 ```{r}
 # Plot overall time series w/log scale
 plot(sales_ts, type = "l",
-     main = "Store Sales for All Product Families | Weekly | All Dates | Log Scale",
+     main = "Store Sales for All Product Families  |  Weekly  |  All Dates  |  Log Scale",
      xlab = TeX(r"(\textbf{Date (weekly \textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} (000) )"),
      las = 1, cex.axis = 0.7,
      log = "y")
@@ -291,7 +292,7 @@ plot(sales_ts, type = "l",
 # Plot zoomed time series with trend line
 sales_zoom_ts <- window(sales_ts, start = c(sales_end_year, 1), end = c(sales_end_year, 13))
 plot(sales_zoom_ts, type = "l",
-     main = "Store Sales for All Product Families | Weekly | One Quarter",
+     main = "Store Sales for All Product Families  |  Weekly  |  One Quarter",
      xlab = TeX(r"(\textbf{Date (weekly \textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} (000) )"),
      xaxt = "n",
      las = 1, cex = 0.7)
@@ -305,7 +306,7 @@ legend("bottomright",
        legend = "Trend Line",
        col = "red",
        lwd = 2, lty = 1.2, cex = 0.8,
-       box.lty = 0, text.col = "red")
+       box.lty = 0, bg = NULL, text.col = "red")
 ```
 
 
@@ -330,10 +331,8 @@ for (f in unique(sales_wk_df$family)) {
 
   # Plot time series
   plot(df_ts, type = "l",
-       main = paste("Store Sales for ", f, " | All Dates", sep = ""),
-       
+       main = paste("Store Sales for ", f, "  |  All Dates", sep = ""),
        height = 0.8,
-       
        xlab = TeX(r"(\textbf{Date (weekly \textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} (000) )"),
        las = 1, cex.axis = 0.7)
 }
@@ -349,7 +348,7 @@ par(opar)
 * __[Series Granularity? (27)]__ - Series grain includes store numbers and individual product families. Grocery chain sub-goals may have different requirements for this grain. For example, optimal pricing, inventory management, and timely promotion may benefit from product family detail, while optimal staffing may benefit from store number. For the purposes of this project, we are focusing on overall forecasting - i.e., aggregated above individual store and product family - knowing that patterns appear similar and project work can be taken to a new level of detail in the future? 
 * __[Series Granularity / Product Families]__ - The above analysis highlights product families or categories that appear *adjacent* - i.e., not "core" - to the grocery business. Some of these families, e.g., books, celebration, or home appliances were introduced at different times and may be "opportunistic" or pilot families. Given this, the project is removing a subset of these types of product families in favor of basic grocery families. *(Does this also get to [domain expertise? (27)]?)*
 <br><br>
-* __[Time Series Components? (28)]__ - Store sales at daily and weekly frequencies, across and within individual product families, exhibit systematic components of [average] level (by default), trend (changes from one period to the next), and seasonality, or cyclical behavior. Of course, all include non-systematic "noise."
+* __[Time Series Components? (28)]__ - Store sales at daily and weekly frequencies, across and within individual product families, exhibit systematic components of [average] level (by default), trend (changes from one period to the next), and [multiplicative?] seasonality, or cyclical behavior. Of course, all include non-systematic "noise."
 
 ---
 
@@ -395,7 +394,6 @@ sales_core_df <- (sales_df %>%
                     filter(family %in% keep_families))
 ```
 
-
 ###### Series Visualization - Select ("Core") Product Families
 
 ```{r}
@@ -416,12 +414,12 @@ sales_ts <- ts(sales_wk_df$sales,
 
 # Plot overall time series with moving averages
 plot(sales_ts, type = "l",
-     main = "Store Sales for Select Product Families | Weekly | All Dates",
+     main = "Store Sales for Select Product Families  |  Weekly  |  All Dates",
      xlab = TeX(r"(\textbf{Date (weekly \textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} (000) )"),
      las = 1, cex.axis = 0.7)
 
-sales_l_ma <- rollmean(sales_ts, k = 12, align = "right")
-sales_c_ma <- ma(sales_ts, order = 12)
+sales_l_ma <- rollmean(sales_ts, k = 4, align = "right")
+sales_c_ma <- ma(sales_ts, order = 4)
 lines(sales_l_ma, lwd = 2, lty = 2, col = "blue")
 lines(sales_c_ma, lwd = 2, lty = 1, col = "red")
 
@@ -429,12 +427,12 @@ legend("bottomright",
        legend = c("Right Moving Average", "Centered Moving Average"),
        col = c("blue", "red"),
        lwd = 2, lty = c(2, 1), cex = 0.8,
-       box.lty = 0, text.col = c("blue", "red"))
+       box.lty = 0, bg = NULL, text.col = c("blue", "red"))
 ```
 
 ---
 
-* __[Centered Moving Average Smoothing Method? (80)] [Choosing Window Width? (83)]__ - The above figure provides a view of the overall time series, aggregated to weekly, for select "core grocery chain" product families. The centered and trailing moving average lines are illustrative and not intended for forecasting given trend and seasonality components. Note also that these use a window width of monthly, again, for smoothing visualizlation (series understanding) only.
+* __[Centered Moving Average Smoothing Method? (80)] [Choosing Window Width? (83)]__ - The above figure provides a view of the overall time series, aggregated to weekly, for select "core grocery chain" product families. The centered and trailing moving average lines are illustrative and not intended for forecasting given trend and seasonality components. Note also that these use a window width of quarterly, again, for smoothing visualizlation (series understanding) only.
 
 ---
 
@@ -492,7 +490,7 @@ ymax <- max(sales_ts) * 1.5
 xmax <- x_future + 1
 
 plot(sales_snaive_pred, type = "l",
-     main = "Store Sales for Select Product Families | Weekly | Seasonal Naive Forecaster",
+     main = "Store Sales for Select Product Families  |  Seasonal Naive Forecaster",
      xlab = TeX(r"(\textbf{Date (weekly \textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} (000) )"),
      las = 1, cex.axis = 0.7,
      xlim = c(x_train, xmax), ylim = c(0, ymax))
@@ -511,9 +509,9 @@ text(x_future + 0.5, ymax, "Future", font = 2, cex = 0.7)
 
 legend("bottomright",
        legend = c("Forecast", "Actual"),
-       col = c("blue", "red"),
+       col = c("dodgerblue", "red"),
        lwd = 2, lty = 1, cex = 0.8,
-       box.lty = 0, bg = NULL, text.col = c("blue", "red"))
+       box.lty = 0, bg = NULL, text.col = c("dodgerblue", "red"))
 ```
 
 ---
@@ -543,6 +541,46 @@ legend("bottomright",
 
 ---
 
+```{r}
+# Fit Holt-Winter's model with (M)ultiplicative error, (A)dditive trend, and (M)ultiplicative seasonality
+#   for last year of training series  
+sales_hw <- ets(window(sales_train_ts, start = c(sales_begin_year, sales_n_train + 1 - sales_n_valid),
+                       end = c(sales_begin_year, sales_n_train + 1)),
+                model = "MAM")
+
+# Forecast (predict) for validation period
+sales_hw_pred <- forecast(sales_hw, h = length(sales_valid_ts), level = 0)
+
+# Summarize forecast (validation) performance
+accuracy(sales_hw_pred, sales_valid_ts)
+
+# Plot Holt-Winter's model
+plot(sales_hw_pred, type = "l",
+     main = "Store Sales for Select Product Families  |  Holt-Winter's Forecaster",
+     xlab = TeX(r"(\textbf{Date (weekly \textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} (000) )"),
+     las = 1, cex.axis = 0.7,
+     xlim = c(x_train, xmax), ylim = c(0, ymax))
+
+# Add additional lines
+lines(sales_hw$fitted, lwd = 3, col = adjustcolor("dodgerblue", alpha.f = 0.3))
+lines(sales_valid_ts, lwd = 2, col = "red")
+
+# Add plot defintions
+lines(c(x_train, x_train), c(0, ymax), lwd = 3, lty = 3)
+lines(c(x_valid, x_valid), c(0, ymax), lwd = 3, lty = 3)
+lines(c(x_future, x_future), c(0, ymax), lwd = 3, lty = 3)
+
+text(x_train + ((x_valid - x_train) * 0.5), ymax, "Training", font = 2, cex = 0.7)
+text(x_valid + ((x_future - x_valid) * 0.5), ymax, "Validation", font = 2, cex = 0.7)
+text(x_future + 0.5, ymax, "Future", font = 2, cex = 0.7)
+
+legend("bottomright",
+       legend = c("Forecast", "Actual"),
+       col = c("dodgerblue", "red"),
+       lwd = 2, lty = 1, cex = 0.8,
+       box.lty = 0, bg = NULL, text.col = c("dodgerblue", "red"))
+```
+
 
 ###### Model-Driven: Regression
 
@@ -556,6 +594,43 @@ legend("bottomright",
 
 ---
 
+```{r}
+# Fit basic regression model with trend and seasonality
+sales_lm <- tslm(sales_train_ts ~ trend + I(trend ^ 2) + season)
+
+# Forecast (predict) for validation period
+sales_lm_pred <- forecast(sales_lm, h = sales_n_valid, level = 0)
+
+# Summarize performance metrics
+accuracy(sales_lm_pred, sales_valid_ts)
+
+# Plot simple regression model
+plot(sales_lm_pred, type = "l",
+     main = "Store Sales for Select Product Families  |  Regression Forecaster",
+     xlab = TeX(r"(\textbf{Date (weekly \textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} (000) )"),
+     las = 1, cex.axis = 0.7,
+     xlim = c(x_train, xmax), ylim = c(0, ymax))
+
+# Add additional lines
+lines(sales_lm$fitted, lwd = 3, col = adjustcolor("dodgerblue", alpha.f = 0.3))
+lines(sales_valid_ts, lwd = 2, col = "red")
+
+# Add plot defintions
+lines(c(x_train, x_train), c(0, ymax), lwd = 3, lty = 3)
+lines(c(x_valid, x_valid), c(0, ymax), lwd = 3, lty = 3)
+lines(c(x_future, x_future), c(0, ymax), lwd = 3, lty = 3)
+
+text(x_train + ((x_valid - x_train) * 0.5), ymax, "Training", font = 2, cex = 0.7)
+text(x_valid + ((x_future - x_valid) * 0.5), ymax, "Validation", font = 2, cex = 0.7)
+text(x_future + 0.5, ymax, "Future", font = 2, cex = 0.7)
+
+legend("bottomright",
+       legend = c("Forecast", "Actual"),
+       col = c("dodgerblue", "red"),
+       lwd = 2, lty = 1, cex = 0.8,
+       box.lty = 0, bg = NULL, text.col = c("dodgerblue", "red"))
+```
+
 
 ###### Model-Driven: Regression w/Autocorrelation and External Information
 
@@ -568,6 +643,15 @@ legend("bottomright",
 * __[Including External Information? (154)]__ -
 
 ---
+
+```{r}
+#
+Acf(sales_ts, lag.max = 12, type = "correlation", plot = TRUE,
+    main = "Store Sales for Select Product Families  |  Autocorrelation",
+    xlab = TeX(r"(\textbf{Lag} )"), ylab = TeX(r"(\textbf{Autocorrelation} )"),
+    xaxt = "n",
+    level = 95)
+```
 
 
 ###### Model-Driven: Opportunities
