@@ -19,8 +19,8 @@ This is the final project for the University of San Diego’s ADS 506 Applied Ti
 
 ## Getting Started
 1. Clone this repository (For help, refer to this [tutorial](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository))
-2. Raw data is kept in the GitHub repository and Kaggle.
-    * [Train data]()
+2. Raw data is kept in the GitHub repository and [Kaggle](https://www.kaggle.com/competitions/store-sales-time-series-forecasting/data).
+    * [Train data](https://www.kaggle.com/competitions/store-sales-time-series-forecasting/data?select=train.csv)
     * [Test data](https://github.com/davefriesen/grocery-sales-forecast/blob/main/data/test.csv)
 3. Data preprocessing, exploratory data analysis, and models are in the [GitHub respository](https://github.com/davefriesen/grocery-sales-forecast/blob/main/src/ads506-team5-final-project.Rmd).
 
