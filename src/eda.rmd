@@ -34,6 +34,7 @@ library(forecast)
 library(dplyr)
 library(tidyr)
 library(zoo)
+library(lubridate)
 
 # Expand output width and minimize exp notation
 options(width = 150)
@@ -54,8 +55,8 @@ knitr::opts_chunk$set(comment = NA)
 
 ```{r data_load_validation}
 # Load dataset(s); assumes folder structure with data parallel to src
-train_df <- read.csv("/Users/christinevu/Downloads/train.csv", header = TRUE)
-test_df <- read.csv("/Users/christinevu/Downloads/test.csv", header = TRUE)
+sales_df <- read.csv("/Users/christinevu/Downloads/train.csv", header = TRUE)
+sales_test_df <- read.csv("/Users/christinevu/Downloads/test.csv", header = TRUE)
 stores_df <- read.csv("/Users/christinevu/Downloads/stores.csv", header = TRUE)
 oil_df <- read.csv("/Users/christinevu/Downloads/oil.csv", header = TRUE)
 events_df <- read.csv("/Users/christinevu/Downloads/holidays_events.csv", header = TRUE)
@@ -68,15 +69,15 @@ events_df <- read.csv("/Users/christinevu/Downloads/holidays_events.csv", header
 
 ```{r data_structure_review}
 # Summarize base datasets
-str(train_df)
-str(test_df)
+str(sales_df)
+str(sales_test_df)
 str(stores_df)
 str(oil_df)
 str(events_df)
 
 # [Optionally] review sample observations
-head(train_df, 5)
-head(test_df, 5)
+head(sales_df, 5)
+head(sales_test_df, 5)
 head(stores_df, 5)
 head(oil_df, 5)
 head(events_df, 5)
@@ -172,8 +173,8 @@ univariate <- function(df) {
 
 ```{r data_profiling}
 # e.g., statistical characteristics (including distribution, skewness, outliers)
-univariate(train_df)
-univariate(test_df)
+univariate(sales_df)
+univariate(sales_test_df)
 univariate(stores_df)
 univariate(oil_df)
 univariate(events_df)
@@ -181,8 +182,8 @@ univariate(events_df)
 
 ```{r}
 # Data summary statistics
-summary(train_df)
-summary(test_df)
+summary(sales_df)
+summary(sales_test_df)
 summary(stores_df)
 summary(oil_df)
 summary(events_df)
@@ -190,7 +191,7 @@ summary(events_df)
 
 ```{r}
 # Proportion by family
-fam_prop <- train_df %>%
+fam_prop <- sales_df %>%
               group_by(family) %>%
               summarise(Mean_Sales = round(mean(sales, na.rm = TRUE), 2),
                         Median_Sales = round(median(sales, na.rm = TRUE), 2),
@@ -198,7 +199,7 @@ fam_prop <- train_df %>%
                         IQR_Sales = IQR(sales),
                         Total_Sales = sum(sales))
 
-fam_prop
+head(fam_prop, 3)
 ```
 
 ```{r}
@@ -231,6 +232,159 @@ fam_plot2 <- ggplot(fam_prop) +
 ggplotly(fam_plot2)
 ```
 
+```{r}
+# Extract day, month, year, etc. from sales_df
+sales_df$day <- sales_df$date %>% day()
+sales_df$month <- sales_df$date %>% month()
+sales_df$month_lab <- sales_df$date %>% month(label = TRUE)
+sales_df$year <- sales_df$date %>% year()
+sales_df$week <- sales_df$date %>% week()
+sales_df$week_day <- sales_df$date %>%
+  wday(week_start = getOption("lubridate.week.start", 1), label = TRUE)
+```
+
+```{r}
+# Proportion by sales
+sales_prop <- sales_df %>%
+                group_by(store_nbr) %>%
+                summarise(Mean_Sales = mean(sales),
+                          Median_Sales = median(sales),
+                          Maximum_Sales = max(sales),
+                          IQR_Sales = IQR(sales),
+                          IQR_to_avg_sales = IQR(sales) / mean(sales),
+                          Total_Sales = sum(sales))
+
+head(sales_prop, 3)
+```
+
+```{r}
+# Bar plot: Average of store sales by day of the week in January 2013
+sales_plot <- sales_df %>%
+                group_by(date) %>%
+                  summarise(avg_sales = mean(sales), wday = week_day, .groups = "keep") %>%
+                    filter(date <= '2013-01-31') %>% 
+                      ggplot() +
+                      geom_col(aes(x = date, y = avg_sales, fill = wday)) +
+                      labs(title = "Average of Daily Store Sales in January 2013",
+                           x = "Date",
+                           y = "Average of Daily Sales",
+                           fill = "Day of the Week",
+                           bty = "l")
+sales_plot2
+```
+
+```{r}
+# Bar plot: Average of store sales by day of the week
+sales_plot1 <- sales_df %>%
+                group_by(week_day) %>%
+                  summarise(avg_sales = mean(sales)) %>% 
+                    ggplot() +
+                    geom_col(aes(x = week_day,
+                                 y = avg_sales,
+                                 fill = week_day)) +
+                    labs(title = "Average of Daily Store Sales by Day of the Week",
+                         x = "Day of the Week",
+                         y = "Average of Daily Sales",
+                         fill = "Day of the Week",
+                         bty = "l")
+sales_plot1
+
+# Bar plot: Average of store sales by week
+sales_plot2 <- sales_df %>%
+                group_by(week) %>%
+                  summarise(avg_sales = mean(sales)) %>% 
+                    ggplot() +
+                    geom_col(aes(x = week,
+                                 y = avg_sales,
+                                 fill = as.factor(week))) +
+                    labs(title = "Average of Daily Store Sales by Week",
+                         x = "Week",
+                         y = "Average of Weekly Sales",
+                         fill = "Week",
+                         bty = "l")
+sales_plot2
+
+# Bar plot: Average of store sales by month of the year
+sales_plot3 <- sales_df %>%
+                group_by(month_lab) %>%
+                  summarise(avg_sales = mean(sales)) %>% 
+                    ggplot() +
+                    geom_col(aes(x = month_lab,
+                                 y = avg_sales,
+                                 fill = month_lab)) +
+                    labs(title = "Average of Daily Store Sales by Month of the Year",
+                         x = "Month",
+                         y = "Average of Monthly Sales",
+                         fill = "Month",
+                         bty = "l")
+sales_plot3
+
+# Bar plot: Average of store sales by year
+sales_plot4 <- sales_df %>%
+                group_by(year) %>%
+                  summarise(avg_sales = mean(sales)) %>% 
+                    ggplot() +
+                    geom_col(aes(x = year,
+                                 y = avg_sales,
+                                 fill = as.factor(year))) +
+                    labs(title = "Average of Daily Store Sales by Year",
+                         x = "Year",
+                         y = "Average of Yearly Sales",
+                         fill = "Year",
+                         bty = "l")
+sales_plot4
+```
+
+```{r}
+# Bar plot: Distribution of store types
+store_plot <- stores_df$type %>%
+                table() %>% 
+                  as.data.frame() %>% 
+                    ggplot() +
+                    geom_col(aes(y = Freq, x = ., fill = as.factor(.))) +
+                    labs(title = "Distribution of Store Types",
+                         x = "Store Type",
+                         fill = "Type",
+                         bty = "l")
+
+store_plot
+```
+
+```{r}
+# Bar plot: Distribution of holiday type
+events_plot1 <- events_df %>%
+                  ggplot() +
+                  geom_bar(aes(x = type, fill = type)) +
+                  labs(title = "Distrbution of Type of Holiday",
+                       x = "Type of Holiday",
+                       fill = "Holiday Type",
+                       bty = "l")
+events_plot1
+
+# Bar plot: Distribution of holiday locale
+events_plot2 <- events_df %>%
+                  ggplot() +
+                  geom_bar(aes(x = locale, fill = locale)) +
+                  labs(title = "Distribution of Holiday Locale",
+                       x = "Holiday Locale",
+                       fill = "Locale",
+                       bty = "l")
+events_plot2
+```
+
+```{r}
+# Line chart: Daily oil price
+oil_plot <- oil_df %>%
+              ggplot(aes(x = date, y = dcoilwtico, color = dcoilwtico, group = 1)) +
+              geom_line(na.rm = TRUE) +
+              labs(title = "Daily Oil Price",
+                   x = "Date",
+                   y = "Oil Price",
+                   color = "Oil Price",
+                   bty = "l")
+oil_plot
+```
+
 
 ###### Preliminary Feature Reduction (clearly n/a to Objective and Hypothesis)
 
@@ -243,8 +397,8 @@ ggplotly(fam_plot2)
 
 ###### Data Types (confirm/update)
 ```{r}
-lapply(train_df, class)
-lapply(test_df, class)
+lapply(sales_df, class)
+lapply(sales_test_df, class)
 lapply(stores_df, class)
 lapply(oil_df, class)
 lapply(events_df, class)
@@ -253,9 +407,60 @@ lapply(events_df, class)
 
 ###### Time Series Objects
 ```{r}
+# Convert string mm/dd/yyyy to Date values and confirm sort
+sales_df <- (sales_df %>%
+               mutate(date = as.Date(date, format = "%Y-%m-%d"),) %>%
+               arrange(date))
+```
+
+```{r}
+# Aggregate base dataframe by date (i.e., sum all product lines) and initially plot series at
+#   provided time granularity
+sales_agg_df <- as.data.frame(sales_df %>%
+                                group_by(date) %>%
+                                summarize(sales = sum(sales / 1000.0)))
+plot(x = sales_agg_df$date, y = sales_agg_df$sales, type = "l",
+     main = "Store Sales for All Product Families  |  Daily  |  All Dates",
+     xlab = TeX(r"(\textbf{Date (daily \textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} (000) )"),
+     las = 1, cex.axis = 0.7)
+```
+
+```{r}
+# Aggregate base dataframe from daily to weekly for all product families
+sales_wk_df <- as.data.frame(sales_df %>%
+                               mutate(year = year(date), week = week(date)) %>%
+                               group_by(year, week) %>%
+                               summarize(sales = sum(sales / 1000.0)))
+
+# Create overall time series
+sales_begin_year <- head(sales_wk_df$year, 1)
+sales_begin_week <- head(sales_wk_df$week, 1)
+sales_end_year <- tail(sales_wk_df$year, 1)
+sales_end_week <- tail(sales_wk_df$week, 1)
+sales_ts <- ts(sales_wk_df$sales,
+               start = c(sales_begin_year, sales_begin_week),
+               end = c(sales_end_year, sales_end_week), freq = 52)
+
+# Plot overall time series with trend line
+plot(sales_ts, type = "l",
+     main = "Store Sales for All Product Families  |  Weekly  |  All Dates",
+     xlab = TeX(r"(\textbf{Date (weekly \textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} (000) )"),
+     las = 1, cex.axis = 0.7)
+
+sales_lm <- tslm(sales_ts ~ trend + I(trend^2))
+lines(sales_lm$fitted, lwd = 2, lty = 1, col = "red")
+
+legend("bottomright",
+       legend = c("Trend Line"),
+       col = c("red"),
+       lwd = 2, lty = 1.2, cex = 0.8,
+       box.lty = 0, bg = NULL, text.col = "red")
+```
+
+```{r}
 # Convert data to time series objects
-train.ts <- ts(train_df$sales, start = c(1, 1), freq = 52)
-test.ts <- ts(test_df$family, start = c(1, 1), freq = 52)
+train.ts <- ts(sales_df$sales, start = c(1, 1), freq = 52)
+test.ts <- ts(sales_test_df$family, start = c(1, 1), freq = 52)
 stores.ts <- ts(stores_df$cluster, start = c(1, 1), freq = 52)
 oil.ts <- ts(oil_df$dcoilwtico, start = c(1, 1), freq = 52)
 #events.ts <- ts(holiday_events$sales, start = c(1, 1), freq = 52)
@@ -271,14 +476,58 @@ oil.ts <- ts(oil_df$dcoilwtico, start = c(1, 1), freq = 52)
 ### Data Partitioning
 ```{r}
 # Count rows
-nrow(train_df)
-nrow(test_df)
+nrow(sales_df)
+nrow(sales_test_df)
 
 # Count columns
-ncol(train_df)
-ncol(test_df)
+ncol(sales_df)
+ncol(sales_test_df)
 ```
 
+```{r}
+# Use one year (52 weeks) as validation period (representative set of quarters, seasons)
+sales_n_valid <- 52
+sales_n_train <- length(sales_ts) - sales_n_valid
+
+# Split data into training and validation periods
+sales_train_ts <- window(sales_ts, start = c(sales_begin_year, 1), end = c(sales_begin_year, sales_n_train))
+sales_valid_ts <- window(sales_ts, start = c(sales_begin_year, sales_n_train + 1), end = c(sales_begin_year, sales_n_train + sales_n_valid))
+
+# Set x axis values based on ts ranges
+x_train <- sales_begin_year
+x_valid <- sales_begin_year + ((sales_n_train + 1) / 52)
+x_future <- x_valid + ((sales_n_valid + 1) / 52)
+```
+
+```{r}
+# Remove rows not considered "core"
+keep_families <- c("BEAUTY", "BEVERAGES", "BREAD/BAKERY", "CLEANING", "DAIRY",
+                   "DELI", "EGGS", "FROZEN FOODS", "GROCERY", "GROCERY II", "HARDWARE",
+                   "LIQUOR,WINE,BEER", "MEATS", "PERSONAL CARE", "PET SUPPLIES", "POULTRY",
+                   "PREPARED FOODS", "PRODUCE", "SEAFOOD")
+remove_families <- c("AUTOMOTIVE", "BABY CARE", "BOOKS", "CELEBRATION", "HOME APPLIANCES",
+                     "HOME AND KITCHEN I", "HOME AND KITCHEN II", "HOME CARE", "LADIESWEAR",
+                     "LAWN AND GARDEN", "LINGERIE", "MAGAZINES", "PET SUPPLIES",
+                     "PLAYERS AND ELECTRONICS", "SCHOOL AND OFFICE SUPPLIES")
+sales_core_df <- (sales_df %>%
+                    filter(family %in% keep_families))
+```
+
+```{r}
+# Re-aggregate base dataframe from daily to weekly for all product families
+sales_wk_df <- as.data.frame(sales_core_df %>%
+                               mutate(year = year(date), week = week(date)) %>%
+                               group_by(year, week) %>%
+                               summarize(sales = sum(sales / 1000.0)))
+# Re-create overall time series
+sales_begin_year <- head(sales_wk_df$year, 1)
+sales_begin_week <- head(sales_wk_df$week, 1)
+sales_end_year <- tail(sales_wk_df$year, 1)
+sales_end_week <- tail(sales_wk_df$week, 1)
+sales_ts <- ts(sales_wk_df$sales,
+               start = c(sales_begin_year, sales_begin_week),
+               end = c(sales_end_year, sales_end_week), freq = 52)
+```
 
 ### Additional Uni/Multivariate EDA and Feature Engineering/Selection
 
@@ -286,8 +535,8 @@ ncol(test_df)
 ###### Missing/null values (find/impute/drop)
 ```{r}
 # Count missing values
-sum(is.na(train_df))
-sum(is.na(test_df))
+sum(is.na(sales_df))
+sum(is.na(sales_test_df))
 sum(is.na(stores_df))
 sum(is.na(oil_df))
 sum(is.na(events_df))
@@ -299,9 +548,7 @@ mean(is.na(oil_df))
 
 # Option: Drop missing records since they only account for 2% of data
 # na.omit(oil_df)
-```
 
-```{r}
 # oil_df2: New 'oil_df' data frame without missing values
 # Foward and backward fill for missing values
 oil_df2 <- na.locf(oil_df, fromLast = TRUE)
@@ -317,10 +564,16 @@ sum(is.na(oil_df2))
 ###### Outliers (convert/drop)
 ```{r}
 # Box plot: oil_df2
-ggplot(oil_df2) +
-  aes(x = "", y = dcoilwtico) + geom_boxplot(fill = "#0c4c8a") +
-  theme_minimal() + labs(title = "Oil Box Plot", x = "", y = "Oil Price")
+oil_outliers <- ggplot(oil_df2) +
+                aes(x = "", y = dcoilwtico) +
+                geom_boxplot(fill = "#56B4E9") +
+                labs(title = "Oil Box Plot",
+                     x = "",
+                     y = "Oil Price",
+                     bty = "l")
+oil_outliers
 ```
+
 
 ###### Zero/Near-Zero Variances (find/address)
 
@@ -338,6 +591,58 @@ ggplot(oil_df2) +
 
 
 ### Modeling
+```{r}
+# Time plot: Sales
+plot(sales_ts,
+     main = "Weekly Store Sales",
+     xlab = "Week",
+     ylab = "Sales",
+     bty = "l")
+
+# ACF plot: Sales
+Acf(sales_ts, lag.max = 1)
+
+# Time plot: Differenced series of sales
+plot(diff(sales_ts, lag = 1),
+     main = "Store Sales Differenced Series",
+     ylab = "Sales",
+     bty = "l")
+```
+
+```{r}
+# Random walk from AR model
+fit <- Arima(sales_ts, order = c(1, 0, 0))
+fit
+
+2 * pt(-abs((1 - fit$coef["ar1"]) / 0.04), df = length(sales_ts) - 1)
+```
+
+```{r}
+# Decomposition of weekly sales
+stl.run <- stl(sales_ts, s.window = "periodic")
+
+plot(stl.run)
+```
+
+```{r}
+# Fitting AR(1) model to the residual series
+train.lm.trend.season <- tslm(sales_ts ~ trend + I(trend^2) + season)
+train.res.arima <- Arima(train.lm.trend.season$residuals, order = c(1,0,0))
+train.res.arima.pred <- forecast(train.res.arima, h = nValid)
+
+plot(train.lm.trend.season$residuals,
+     main = "Store Sales AR(1) Model to Residual Series",
+     xlab = "Time",
+     ylab = "Residuals",
+     bty = "l",
+     xaxt = "n")
+
+axis(1, at = seq(2013, 2017, 1), labels = format(seq(2013, 2017, 1)))
+
+lines(train.res.arima.pred$fitted, lwd = 2, col = "blue")
+
+summary(train.res.arima)
+```
 
 
 ###### Final Feature Selection
@@ -350,4 +655,3 @@ ggplot(oil_df2) +
 
 
 ###### Optimization, Tuning, Selection
-
