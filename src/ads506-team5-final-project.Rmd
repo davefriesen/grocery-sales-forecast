@@ -724,11 +724,11 @@ legend("bottomright",
 ###### Data-Driven: Smoothing Methods
 
 ```{r}
-# Fit Holt-Winter's model with (M)ultiplicative error, (A)dditive trend, and (M)ultiplicative seasonality
+# Fit Holt-Winter's model with (A)dditive error, (A)dditive trend, and (A)dditive seasonality
 #   for last year of training series
 sales_hw <- ets(window(sales_train_ts, start = c(sales_begin_year, sales_n_train + 1 - sales_n_valid),
                        end = c(sales_begin_year, sales_n_train + 1)),
-                model = "MAM")
+                model = "AAA")
 
 # Forecast (predict) for validation period
 sales_hw_pred <- forecast(sales_hw, h = length(sales_valid_ts), level = 0)
@@ -877,7 +877,7 @@ Acf(sales_res_arima$residuals, lag.max = 52, type = "correlation", plot = TRUE,
 
 ```{r}
 # Fit ARIMA model
-sales_arima <- Arima(sales_train_ts, order = c(1, 0, 0), seasonal = c(0, 0, 2))
+sales_arima <- Arima(sales_train_ts, order = c(1, 1, 0), seasonal = c(0, 1, 2))
 sales_arima_pred <- forecast(sales_arima, h = length(sales_valid_ts))
 
 # Summarize forecast (validation) performance
