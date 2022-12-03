@@ -192,7 +192,7 @@ setwd(dir)
 sales_df <- read.csv("train.csv", header = TRUE)
 sales_test_df <- read.csv("test.csv", header = TRUE)
 stores_df <- read.csv("stores.csv", header = TRUE)
-oil_df <- read.csv("oil.csv", header = TRUE)
+oil_df <- read.csv("oil.csv", header = TRUE) 
 events_df <- read.csv("holidays_events.csv", header = TRUE)
 
 # Data validation and understanding, including structure, content, and statistical characteristics covered below
