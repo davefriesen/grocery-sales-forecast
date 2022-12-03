@@ -17,29 +17,20 @@ output:
 </style>
 
 
-### Define Goal
-
----
-
-* Apply advanced forecasting techniques to "grocery" sales.
-* Demonstrate data-driven and model-based approches across product families complimentary with a "typical" grocery store chain.
-* Establish, in practical terms, the feasibility of using one or more forecasting appraoches in a real-world scenario to support optimal pricing, inventory management, timely promotion, optimal staffing, and other retain grocery objectives.
-<br><br>
-* __[Descriptive Goal? (18)] [Predictive Goal? (18)]__ - *Add more specifically to these types of forecasting?*
-* __[Forecast Horizon? (20)] [Forecast Use? (21)]__ - *Add more detail (here or below in forecasting section)?*
-* __[Level of Automation? (21, 72)]__ - *Address here as part of overall goal, or elsewhere?*
-
----
-
-
 ```{r setup, echo = FALSE, message = FALSE}
 # Load basic libraries
+#library(tidyr)
 library(dplyr)
 
 # Load visualization libraries
+library(ggplot2)
+library(plotly)
 library(grDevices)
 
 # Load EDA libraries
+#library(readr)
+#library(RTextTools)
+#library(readxl)
 
 # Load model and performance evaluation libraries
 library(zoo)
@@ -193,19 +184,22 @@ univariate <- function(df, df_name = deparse(substitute((df)))) {
 Reference: [https://www.kaggle.com/competitions/store-sales-time-series-forecasting/data?select=transactions.csv]
 
 ```{r}
-# Load dataset(s); assumes folder structure with data parallel to src
-sales_df <- read.csv("../data/train.csv", header = TRUE)
-sales_test_df <- read.csv("../data/test.csv", header = TRUE)
-stores_df <- read.csv("../data/stores.csv", header = TRUE)
-oil_df <- read.csv("../data/oil.csv", header = TRUE)
-events_df <- read.csv("../data/holidays_events.csv", header = TRUE)
+#dir <- "/Users/christinevu/Downloads/"
+dir <- "../data/"
+
+# Load dataset(s)
+setwd(dir)
+sales_df <- read.csv("train.csv", header = TRUE)
+sales_test_df <- read.csv("test.csv", header = TRUE)
+stores_df <- read.csv("stores.csv", header = TRUE)
+oil_df <- read.csv("oil.csv", header = TRUE)
+events_df <- read.csv("holidays_events.csv", header = TRUE)
 
 # Data validation and understanding, including structure, content, and statistical characteristics covered below
 ```
 
 
 ### Explore & Visualize Series
-
 
 ###### Univariate Analysis and Preliminary Pre-Processing
 
@@ -217,13 +211,37 @@ univariate(sales_test_df); head(sales_test_df, 3); #str(sales_test_df)
 univariate(stores_df); head(stores_df, 3); #str(stores_df)
 univariate(oil_df); head(oil_df, 3); #str(oil_df)
 univariate(events_df); head(events_df, 3); #str(events_df)
+
+# The following code was key for preliminary EDA, with individual results ultimately summarized
+#   through the above univariate() calls
+
+# Data summary statistics
+#summary(sales_df)
+#summary(sales_test_df)
+#summary(stores_df)
+#summary(oil_df)
+#summary(events_df)
+
+# Data types
+#lapply(sales_df, class)
+#lapply(sales_test_df, class)
+#lapply(stores_df, class)
+#lapply(oil_df, class)
+#lapply(events_df, class)
+
+# Row and column counts
+#nrow(sales_df)
+#row(sales_test_df)
+#ncol(sales_df)
+#ncol(sales_test_df)
+
+# Missing values
+#sum(is.na(sales_df))
+#sum(is.na(sales_test_df))
+#sum(is.na(stores_df))
+#sum(is.na(oil_df))
+#sum(is.na(events_df))
 ```
-
----
-
-* __[commentary on data usage - e.g., test data as provided adds no value?]
-
----
 
 ```{r}
 # Convert string mm/dd/yyyy to Date values and confirm sort
@@ -280,19 +298,71 @@ legend("bottomright",
 ```
 
 ```{r}
-# Plot overall time series w/log scale
-plot(sales_ts, type = "l",
-     main = "Store Sales for All Product Families  |  Weekly  |  All Dates  |  Log Scale",
-     xlab = TeX(r"(\textbf{Date (weekly \textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} (000) )"),
-     las = 1, cex.axis = 0.7,
-     log = "y")
+# Proportion by family
+fam_prop <- sales_df %>%
+              group_by(family) %>%
+              summarise(Mean_Sales = round(mean(sales, na.rm = TRUE), 2),
+                        Median_Sales = round(median(sales, na.rm = TRUE), 2),
+                        Maximum_Sales = max(sales),
+                        IQR_Sales = IQR(sales),
+                        Total_Sales = sum(sales))
+head(fam_prop, 3)
 ```
 
 ```{r}
+# Box plot: Mean of store sales by family
+fam_plot <- ggplot(fam_prop) +
+            geom_col(aes(x = family, y = Mean_Sales, fill = family)) +
+            theme(axis.ticks.x = element_blank(),
+                  axis.text.x = element_blank()) +
+            labs(title = "Average Store Sales by Family",
+                 x = "Family of Product",
+                 y = "Average of Daily Sales",
+                 legend = "Family of Product Sold",
+                 bty = "l")
+ggplotly(fam_plot)
+```
+
+```{r}
+# Box plot: Total store sales by family
+fam_plot2 <- ggplot(fam_prop) +
+             geom_col(aes(x = family, y = Total_Sales, fill = family)) +
+             theme(axis.ticks.x = element_blank(),
+                   axis.text.x = element_blank()) +
+             labs(title = "Total Store Sales by Family",
+                  x = "Family of Product",
+                  y = "Average of Daily Sales",
+                  legend = "Family of Product Sold",
+                  bty = "l")
+ggplotly(fam_plot2)
+```
+
+```{r}
+# Extract day, month, year, etc. from sales_df
+sales_df$day <- sales_df$date %>% day()
+sales_df$month <- sales_df$date %>% month()
+sales_df$month_lab <- sales_df$date %>% month(label = TRUE)
+sales_df$year <- sales_df$date %>% year()
+sales_df$week <- sales_df$date %>% week()
+sales_df$week_day <- sales_df$date %>%
+  wday(week_start = getOption("lubridate.week.start", 1), label = TRUE)
+```
+
+```{r}
+opar = par()
+par(mfrow = c(1, 2))
+
+# Plot overall time series w/log scale
+plot(sales_ts, type = "l",
+     main = "Store Sales  |  Weekly  |  Log Scale",
+     xlab = TeX(r"(\textbf{Date (weekly \textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} (000) )"),
+     las = 1, cex.axis = 0.7,
+     log = "y")
+
 # Plot zoomed time series with trend line
 sales_zoom_ts <- window(sales_ts, start = c(sales_end_year, 1), end = c(sales_end_year, 13))
 plot(sales_zoom_ts, type = "l",
-     main = "Store Sales for All Product Families  |  Weekly  |  One Quarter",
+     main = "Store Sales  |  Weekly  |  One Quarter",
      xlab = TeX(r"(\textbf{Date (weekly \textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} (000) )"),
      xaxt = "n",
      las = 1, cex = 0.7)
@@ -307,6 +377,144 @@ legend("bottomright",
        col = "red",
        lwd = 2, lty = 1.2, cex = 0.8,
        box.lty = 0, bg = NULL, text.col = "red")
+
+par(opar)
+```
+
+```{r}
+# Proportion by sales
+sales_prop <- sales_df %>%
+                group_by(store_nbr) %>%
+                summarise(Mean_Sales = mean(sales),
+                          Median_Sales = median(sales),
+                          Maximum_Sales = max(sales),
+                          IQR_Sales = IQR(sales),
+                          IQR_to_avg_sales = IQR(sales) / mean(sales),
+                          Total_Sales = sum(sales))
+head(sales_prop, 3)
+```
+
+```{r}
+# Bar plot: Average of store sales by day of the week in January 2013
+sales_plot <- sales_df %>%
+                group_by(date) %>%
+                  summarise(avg_sales = mean(sales), wday = week_day, .groups = "keep") %>%
+                    filter(date <= '2013-01-31') %>% 
+                      ggplot() +
+                      geom_col(aes(x = date, y = avg_sales, fill = wday)) +
+                      labs(title = "Average of Daily Store Sales in January 2013",
+                           x = "Date",
+                           y = "Average of Daily Sales",
+                           fill = "Day of the Week",
+                           bty = "l")
+sales_plot
+```
+
+```{r}
+# Bar plot: Average of store sales by day of the week
+sales_plot1 <- sales_df %>%
+                group_by(week_day) %>%
+                  summarise(avg_sales = mean(sales)) %>% 
+                    ggplot() +
+                    geom_col(aes(x = week_day,
+                                 y = avg_sales,
+                                 fill = week_day)) +
+                    labs(title = "Average of Daily Store Sales by Day of the Week",
+                         x = "Day of the Week",
+                         y = "Average of Daily Sales",
+                         fill = "Day of the Week",
+                         bty = "l")
+sales_plot1
+# Bar plot: Average of store sales by week
+sales_plot2 <- sales_df %>%
+                group_by(week) %>%
+                  summarise(avg_sales = mean(sales)) %>% 
+                    ggplot() +
+                    geom_col(aes(x = week,
+                                 y = avg_sales,
+                                 fill = as.factor(week))) +
+                    labs(title = "Average of Daily Store Sales by Week",
+                         x = "Week",
+                         y = "Average of Weekly Sales",
+                         fill = "Week",
+                         bty = "l")
+sales_plot2
+# Bar plot: Average of store sales by month of the year
+sales_plot3 <- sales_df %>%
+                group_by(month_lab) %>%
+                  summarise(avg_sales = mean(sales)) %>% 
+                    ggplot() +
+                    geom_col(aes(x = month_lab,
+                                 y = avg_sales,
+                                 fill = month_lab)) +
+                    labs(title = "Average of Daily Store Sales by Month of the Year",
+                         x = "Month",
+                         y = "Average of Monthly Sales",
+                         fill = "Month",
+                         bty = "l")
+sales_plot3
+# Bar plot: Average of store sales by year
+sales_plot4 <- sales_df %>%
+                group_by(year) %>%
+                  summarise(avg_sales = mean(sales)) %>% 
+                    ggplot() +
+                    geom_col(aes(x = year,
+                                 y = avg_sales,
+                                 fill = as.factor(year))) +
+                    labs(title = "Average of Daily Store Sales by Year",
+                         x = "Year",
+                         y = "Average of Yearly Sales",
+                         fill = "Year",
+                         bty = "l")
+sales_plot4
+```
+
+```{r}
+# Bar plot: Distribution of store types
+store_plot <- stores_df$type %>%
+                table() %>% 
+                  as.data.frame() %>% 
+                    ggplot() +
+                    geom_col(aes(y = Freq, x = ., fill = as.factor(.))) +
+                    labs(title = "Distribution of Store Types",
+                         x = "Store Type",
+                         fill = "Type",
+                         bty = "l")
+store_plot
+```
+
+```{r}
+# Bar plot: Distribution of holiday type
+events_plot1 <- events_df %>%
+                  ggplot() +
+                  geom_bar(aes(x = type, fill = type)) +
+                  labs(title = "Distrbution of Type of Holiday",
+                       x = "Type of Holiday",
+                       fill = "Holiday Type",
+                       bty = "l")
+events_plot1
+# Bar plot: Distribution of holiday locale
+events_plot2 <- events_df %>%
+                  ggplot() +
+                  geom_bar(aes(x = locale, fill = locale)) +
+                  labs(title = "Distribution of Holiday Locale",
+                       x = "Holiday Locale",
+                       fill = "Locale",
+                       bty = "l")
+events_plot2
+```
+
+```{r}
+# Line chart: Daily oil price
+oil_plot <- oil_df %>%
+              ggplot(aes(x = date, y = dcoilwtico, color = dcoilwtico, group = 1)) +
+              geom_line(na.rm = TRUE) +
+              labs(title = "Daily Oil Price",
+                   x = "Date",
+                   y = "Oil Price",
+                   color = "Oil Price",
+                   bty = "l")
+oil_plot
 ```
 
 
@@ -340,29 +548,8 @@ for (f in unique(sales_wk_df$family)) {
 par(opar)
 ```
 
----
-
-* __[Visualizing? (30)] [Zooming In? (30)]__ - The above figures visualize the provided grocery store sales series across different frequencies, grains, and windows, with highlighted trend lines.
-<br><br>
-* __[Temporal Frequency? (26)]__ - Series data is provided at a daily frequency. However, for purposes of forecasting to project goals, we are choosing to aggregate to a lower frequency of weekly?
-* __[Series Granularity? (27)]__ - Series grain includes store numbers and individual product families. Grocery chain sub-goals may have different requirements for this grain. For example, optimal pricing, inventory management, and timely promotion may benefit from product family detail, while optimal staffing may benefit from store number. For the purposes of this project, we are focusing on overall forecasting - i.e., aggregated above individual store and product family - knowing that patterns appear similar and project work can be taken to a new level of detail in the future? 
-* __[Series Granularity / Product Families]__ - The above analysis highlights product families or categories that appear *adjacent* - i.e., not "core" - to the grocery business. Some of these families, e.g., books, celebration, or home appliances were introduced at different times and may be "opportunistic" or pilot families. Given this, the project is removing a subset of these types of product families in favor of basic grocery families. *(Does this also get to [domain expertise? (27)]?)*
-<br><br>
-* __[Time Series Components? (28)]__ - Store sales at daily and weekly frequencies, across and within individual product families, exhibit systematic components of [average] level (by default), trend (changes from one period to the next), and [multiplicative?] seasonality, or cyclical behavior. Of course, all include non-systematic "noise."
-
----
-
 
 ### Pre-Process Data
-
----
-
-* __[Data Qualty? (25)]__ - *Not seeing major issues?*
-* __[Missing Values? (39)]__ - *Not seeing major issues?*
-* __[Unequally Spaced Series? (40)]__ - *Not seeing major issues?*
-* __[Extreme Values? (40)]__ - *Not seeing major issues?*
-
----
 
 ```{r}
 # Placeholder code to emove rows with NAs
@@ -394,6 +581,41 @@ sales_core_df <- (sales_df %>%
                     filter(family %in% keep_families))
 ```
 
+```{r}
+# Mean of missing oil_df data
+mean(is.na(oil_df))
+# Option: Drop missing records since they only account for 2% of data
+# na.omit(oil_df)
+# oil_df2: New 'oil_df' data frame without missing values
+# Foward and backward fill for missing values
+oil_df2 <- na.locf(oil_df, fromLast = TRUE)
+# Confirm oil_df2 has no more missing values
+sum(is.na(oil_df2))
+```
+
+```{r}
+# Box plot: oil_df2
+oil_outliers <- ggplot(oil_df2) +
+                aes(x = "", y = dcoilwtico) +
+                geom_boxplot(fill = "#56B4E9") +
+                labs(title = "Oil Box Plot",
+                     x = "",
+                     y = "Oil Price",
+                     bty = "l")
+oil_outliers
+```
+
+```{r}
+# Convert string mm/dd/yyyy to Date values and confirm sort
+oil_df <- (oil_df %>%
+             mutate(date = as.Date(date, format = "%Y-%m-%d"),) %>%
+             arrange(date))
+
+# Add oil prices to sales dataset for potential use as external predictor
+sales_core_df <- left_join(sales_core_df, oil_df, by = c("date"))
+```
+
+
 ###### Series Visualization - Select ("Core") Product Families
 
 ```{r}
@@ -401,7 +623,7 @@ sales_core_df <- (sales_df %>%
 sales_wk_df <- as.data.frame(sales_core_df %>%
                                mutate(year = year(date), week = week(date)) %>%
                                group_by(year, week) %>%
-                               summarize(sales = sum(sales / 1000.0)))
+                               summarize(sales = sum(sales / 1000.0), dcoilwtico = mean(dcoilwtico)))
 
 # Re-create overall time series
 sales_begin_year <- head(sales_wk_df$year, 1)
@@ -430,20 +652,8 @@ legend("bottomright",
        box.lty = 0, bg = NULL, text.col = c("blue", "red"))
 ```
 
----
-
-* __[Centered Moving Average Smoothing Method? (80)] [Choosing Window Width? (83)]__ - The above figure provides a view of the overall time series, aggregated to weekly, for select "core grocery chain" product families. The centered and trailing moving average lines are illustrative and not intended for forecasting given trend and seasonality components. Note also that these use a window width of quarterly, again, for smoothing visualizlation (series understanding) only.
-
----
-
 
 ### Partition Series
-
----
-
-* __[Temporal Data Partitioning? (45-46)] [Choosing the Validation Period (48)] [Fixed Partition? (65)] [choice of time span? (41)]__ - Given an overall series span of over five years, the series is temporaly partitioned with a fixed validation period of one year. The balance of series data is segmented for training (with the full series span appearing relevant to future forecasts). The one year validation span was chosen based in part on the trend and seasonal natures of the grocery business, as previously highlighted in preliminary analysis, and the possibility need for a forecast horizon of up to one year.
-
----
 
 ```{r}
 # Use one year (52 weeks) as validation period (representative set of quarters, seasons)
@@ -463,20 +673,13 @@ x_future <- x_valid + ((sales_n_valid + 1) / 52)
 
 ### Apply Forecasting Method(s)
 
----
-
-* __[Model-Based vs. Data-Driven (69)]__ -
-
----
+```{r}
+# Initialize dataframe for tracking results across model approaches
+results_df <- data.frame()
+```
 
 
 ###### Naive Forecast Baseline
-
----
-
-* __[Naive Forecasts (50)]__ -
-
----
 
 ```{r}
 # Fit seasonal naive model
@@ -484,6 +687,9 @@ sales_snaive_pred <- snaive(sales_train_ts, h = sales_n_valid)
 
 # Summarize seasonal naive forecast results
 accuracy(sales_snaive_pred, sales_valid_ts)
+results_df <- rbind(results_df, data.frame(Model = "Naive (baseline)",
+                                           Set = c("Train", "Test"),
+                                           accuracy(sales_snaive_pred, sales_valid_ts)))
 
 # Plot seasonal naive forecaster
 ymax <- max(sales_ts) * 1.5
@@ -514,36 +720,12 @@ legend("bottomright",
        box.lty = 0, bg = NULL, text.col = c("dodgerblue", "red"))
 ```
 
----
-
-* __[MAPE, as average deviation from forecast to actual]__ -
-* __[RMSE, as average "distance" from actual]__ -
-
----
-
 
 ###### Data-Driven: Smoothing Methods
 
----
-
-* __[Trailing Moving Average Smoothing Method? (81)]__ -
-* __[Choosing Window Width (83)]__ -
-<br><br>
-* __[Differencing? (85)]__ -
-* __[Removing Trend? (85)]__ -
-* __[Removing Seasonality? (87)]__ -
-* __[Removing Trend and Seasonality? (87)]__ -
-<br><br>
-* __[Simple Exponential Smoothing? (87)]__ -
-* __[Advanced Exponential Smoothing? (90)]__ -
-<br><br>
-* __[Measuring Predictive Accuracy (51++)]__ -
-
----
-
 ```{r}
 # Fit Holt-Winter's model with (M)ultiplicative error, (A)dditive trend, and (M)ultiplicative seasonality
-#   for last year of training series  
+#   for last year of training series
 sales_hw <- ets(window(sales_train_ts, start = c(sales_begin_year, sales_n_train + 1 - sales_n_valid),
                        end = c(sales_begin_year, sales_n_train + 1)),
                 model = "MAM")
@@ -553,6 +735,9 @@ sales_hw_pred <- forecast(sales_hw, h = length(sales_valid_ts), level = 0)
 
 # Summarize forecast (validation) performance
 accuracy(sales_hw_pred, sales_valid_ts)
+results_df <- rbind(results_df, data.frame(Model = "Holt-Winter's Smoothing",
+                                           Set = c("Train", "Test"),
+                                           accuracy(sales_hw_pred, sales_valid_ts)))
 
 # Plot Holt-Winter's model
 plot(sales_hw_pred, type = "l",
@@ -584,16 +769,6 @@ legend("bottomright",
 
 ###### Model-Driven: Regression
 
----
-
-* __[Regression Model with Trend? (117)]__ -
-* __[Regression Model with Seasonality? (125)]__ -
-* __[Regression Model with Trend and Seasonality? (129)]__ -
-<br><br>
-* __[Measuring Predictive Accuracy (51++)]__ -
-
----
-
 ```{r}
 # Fit basic regression model with trend and seasonality
 sales_lm <- tslm(sales_train_ts ~ trend + I(trend ^ 2) + season)
@@ -603,6 +778,9 @@ sales_lm_pred <- forecast(sales_lm, h = sales_n_valid, level = 0)
 
 # Summarize performance metrics
 accuracy(sales_lm_pred, sales_valid_ts)
+results_df <- rbind(results_df, data.frame(Model = "Simple Regression",
+                                           Set = c("Train", "Test"),
+                                           accuracy(sales_lm_pred, sales_valid_ts)))
 
 # Plot simple regression model
 plot(sales_lm_pred, type = "l",
@@ -632,52 +810,152 @@ legend("bottomright",
 ```
 
 
-###### Model-Driven: Regression w/Autocorrelation and External Information
-
----
-
-* __[Autocorrelation? (143)]__ -
-* __[ARIMA Model? (147)]__ -
-<br><br>
-* __[External Information (70)]__ - [consider causal/correlated?]
-* __[Including External Information? (154)]__ -
-
----
+###### Model-Driven: Regression w/Autocorrelation
 
 ```{r}
-#
-Acf(sales_ts, lag.max = 12, type = "correlation", plot = TRUE,
-    main = "Store Sales for Select Product Families  |  Autocorrelation",
+# Compute and plot autocorrelation
+Acf(sales_train_ts, lag.max = 52, type = "correlation", plot = TRUE,
+    main = "Store Sales for Select Product Families  |  Autocorrelation at Different Lags",
     xlab = TeX(r"(\textbf{Lag} )"), ylab = TeX(r"(\textbf{Autocorrelation} )"),
     xaxt = "n",
     level = 95)
 ```
 
 
-###### Model-Driven: Opportunities
+###### Model-Driven: Regression w/Autocorrelation - AR(1)
 
----
+```{r}
+# Compute and plot autocorrelation for regression residuals
+Acf(sales_lm$residuals, lag.max = 52, type = "correlation", plot = TRUE,
+    main = "Regression Residuals  |  Autocorrelation at Different Lags",
+    xlab = TeX(r"(\textbf{Lag} )"), ylab = TeX(r"(\textbf{Autocorrelation} )"),
+    xaxt = "n",
+    level = 95)
+```
 
-* __[Combining Methods and Ensembles (73)]__ -
+```{r}
+# Fit AR(1) second-layer model to regression residuals and forecast (predict) vs. validation;
+#   use AR of 1, MA of 0, and integration (differencing) of 0
+sales_res_arima <- Arima(sales_lm$residuals, order = c(1, 0, 2))
+sales_res_pred <- forecast(sales_res_arima, h = sales_n_valid)
 
----
+# Summarize forecast (validation) performance
+accuracy(sales_res_pred, sales_valid_ts)
+results_df <- rbind(results_df, data.frame(Model = "AR(1)",
+                                           Set = c("Train", "Test"),
+                                           accuracy(sales_res_pred, sales_valid_ts)))
+
+rymin <- min(sales_res_pred$residuals)
+rymax <- max(sales_res_pred$residuals) * 1.5
+
+# Plot residuals
+plot(sales_res_pred$residuals, type = "l",
+     main = "Store Sales for Select Product Families  |  Residuals (errors) from AR(1)",
+     xlab = TeX(r"(\textbf{Time (\textit{$t$})} )"), ylab = TeX(r"(\textbf{Residual (\textit{$y_t$})} )"),
+     xaxt = "n",
+     xlim = c(x_train, xmax), ylim = c(rymin, rymax))
+
+# Add plot defintions
+lines(c(x_train, x_train), c(rymin, rymax), lwd = 3, lty = 3)
+lines(c(x_valid, x_valid), c(rymin, rymax), lwd = 3, lty = 3)
+lines(c(x_future, x_future), c(rymin, rymax), lwd = 3, lty = 3)
+
+text(x_train + ((x_valid - x_train) * 0.5), rymax, "Training", font = 2, cex = 0.7)
+text(x_valid + ((x_future - x_valid) * 0.5), rymax, "Validation", font = 2, cex = 0.7)
+text(x_future + 0.5, rymax, "Future", font = 2, cex = 0.7)
+
+# Compute and plot autocorrelation for residual of residuals
+Acf(sales_res_arima$residuals, lag.max = 52, type = "correlation", plot = TRUE,
+    main = "AR(1) Residuals  |  Autocorrelation at Different Lags",
+    xlab = TeX(r"(\textbf{Lag} )"), ylab = TeX(r"(\textbf{Autocorrelation} )"),
+    xaxt = "n",
+    level = 95)
+```
+
+
+###### Model-Driven: Regression w/Autocorrelation - ARIMA
+
+```{r}
+# Fit ARIMA model
+sales_arima <- Arima(sales_train_ts, order = c(1, 0, 0), seasonal = c(0, 0, 2))
+sales_arima_pred <- forecast(sales_arima, h = length(sales_valid_ts))
+
+# Summarize forecast (validation) performance
+accuracy(sales_arima_pred, sales_valid_ts)
+results_df <- rbind(results_df, data.frame(Model = "ARIMA",
+                                           Set = c("Train", "Test"),
+                                           accuracy(sales_arima_pred, sales_valid_ts)))
+
+# Plot model
+plot(sales_arima_pred, type = "l",
+     main = "Store Sales for Select Product Families  |  ARIMA Forecaster",
+     xlab = TeX(r"(\textbf{Date (weekly \textit{$t$})} )"), ylab = TeX(r"(\textbf{Sales (\textit{$y_t$})} (000) )"),
+     las = 1, cex.axis = 0.7,
+     xlim = c(x_train, xmax), ylim = c(0, ymax))
+
+# Add additional lines
+lines(sales_arima$fitted, lwd = 3, col = adjustcolor("dodgerblue", alpha.f = 0.3))
+lines(sales_valid_ts, lwd = 2, col = "red")
+
+# Add plot defintions
+lines(c(x_train, x_train), c(0, ymax), lwd = 3, lty = 3)
+lines(c(x_valid, x_valid), c(0, ymax), lwd = 3, lty = 3)
+lines(c(x_future, x_future), c(0, ymax), lwd = 3, lty = 3)
+
+text(x_train + ((x_valid - x_train) * 0.5), ymax, "Training", font = 2, cex = 0.7)
+text(x_valid + ((x_future - x_valid) * 0.5), ymax, "Validation", font = 2, cex = 0.7)
+text(x_future + 0.5, ymax, "Future", font = 2, cex = 0.7)
+
+legend("bottomright",
+       legend = c("Forecast", "Actual"),
+       col = c("dodgerblue", "red"),
+       lwd = 2, lty = 1, cex = 0.8,
+       box.lty = 0, bg = NULL, text.col = c("dodgerblue", "red"))
+```
+
+
+###### Model-Driven: Regression w/External Information
+
+```{r}
+#**********CODE HERE**********
+```
+
+
+###### Model-Driven: Regression w/Autocorrelation - ARIMA + External Predictor(r)
+
+```{r}
+# Identify outcome (target) - sales
+sales_train_y <- ts(sales_wk_df$sales, freq = 52)
+
+# Identify external predictor(s) - oil price
+sales_X <- c("dcoilwtico")
+sales_train_X <- as.matrix(sales_wk_df[ , sales_X])
+
+# Fit using auto.arima for sense of best component configuration, and summarize results both without and with external
+#   predictor(s)
+sales_aam <- auto.arima(sales_train_y)
+sales_aamX <- auto.arima(sales_train_y, xreg = sales_train_X)
+summary(sales_aam)
+summary(sales_aamX)
+
+# Fit ARIMA model
+#**********NOTE HAVE BUG IN ARIMA W/EXTERNAL PREDICTOR**********
+sales_am <- Arima(sales_train_y, order = c(0, 0, 1))
+#sales_amX <- Arima(sales_train_y, order = c(0, 0, 1), xreg = sales_train_X)
+summary(sales_am)
+#summary(sales_amX)
+```
 
 
 ### Evaluate & Compare Performance
 
----
+```{r}
+# Show table of summary results
+print(results_df, row.names = FALSE)
 
-* __[Comparing Two Models? (65)]__ -
-* __[Evaulating Predictability? (153)]__ -
-
----
+# Visualize model comparison
+#**********CODE HERE**********
+```
 
 
 ### Implement Forecasts/System
-
----
-
-* __[Joining Partitions for Forecasting (47)]__ -
-* __[Creating Forecasts from the Chosen Model? (132)]__ -
-
----
