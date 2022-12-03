@@ -317,7 +317,7 @@ fam_plot <- ggplot(fam_prop) +
             labs(title = "Average Store Sales by Family",
                  x = "Family of Product",
                  y = "Average of Daily Sales",
-                 legend = "Family of Product Sold",
+                 fill = "Family of Product Sold",
                  bty = "l")
 ggplotly(fam_plot)
 ```
@@ -331,7 +331,7 @@ fam_plot2 <- ggplot(fam_prop) +
              labs(title = "Total Store Sales by Family",
                   x = "Family of Product",
                   y = "Average of Daily Sales",
-                  legend = "Family of Product Sold",
+                  fill = "Family of Product Sold",
                   bty = "l")
 ggplotly(fam_plot2)
 ```
@@ -424,6 +424,7 @@ sales_plot1 <- sales_df %>%
                          fill = "Day of the Week",
                          bty = "l")
 sales_plot1
+
 # Bar plot: Average of store sales by week
 sales_plot2 <- sales_df %>%
                 group_by(week) %>%
@@ -438,6 +439,7 @@ sales_plot2 <- sales_df %>%
                          fill = "Week",
                          bty = "l")
 sales_plot2
+
 # Bar plot: Average of store sales by month of the year
 sales_plot3 <- sales_df %>%
                 group_by(month_lab) %>%
@@ -452,6 +454,7 @@ sales_plot3 <- sales_df %>%
                          fill = "Month",
                          bty = "l")
 sales_plot3
+
 # Bar plot: Average of store sales by year
 sales_plot4 <- sales_df %>%
                 group_by(year) %>%
@@ -768,7 +771,7 @@ legend("bottomright",
 ```{r}
 # Exponential smoothing models:
 # ANN: (A)dditive error, (N)o trend, and (N)o seasonality
-# AAN: Additive error (A), (A)dditive trend, and (N)o seasonality
+# AAN: (A)dditive error, (A)dditive trend, and (N)o seasonality
 # MMN: (M)ultiplicative error, (M)ultiplicative trend, and (N)o seasonality
 # MMdN: Multiplicative damped trend (Md)
 
