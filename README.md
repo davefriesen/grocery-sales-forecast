@@ -18,7 +18,7 @@ The purpose of this project aims to describe grocery store sales behavior and fo
 
 ## Project Description
 * The [store sales](https://www.kaggle.com/competitions/store-sales-time-series-forecasting) dataset is provided by Kaggle.
-*	The following data-driven models are used:
+*	The following model-based and data-driven models are used:
     * Naive Forecast
     * Holt-Winter's Exponential Smoothing
     * Exponential Smoothing (AAN: Additive error, no trend, no seasonality)
