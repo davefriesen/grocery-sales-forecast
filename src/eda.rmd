@@ -184,10 +184,10 @@ univariate <- function(df, df_name = deparse(substitute((df)))) {
 Reference: [https://www.kaggle.com/competitions/store-sales-time-series-forecasting/data?select=transactions.csv]
 
 ```{r}
-#dir <- "/Users/christinevu/Downloads/"
 dir <- "../data/"
 
 # Load dataset(s)
+#setwd(dir)
 sales_df <- read.csv("/Users/christinevu/Downloads/train.csv", header = TRUE)
 sales_test_df <- read.csv("/Users/christinevu/Downloads/test.csv", header = TRUE)
 stores_df <- read.csv("/Users/christinevu/Downloads/stores.csv", header = TRUE)
@@ -495,6 +495,7 @@ events_plot1 <- events_df %>%
                        fill = "Holiday Type",
                        bty = "l")
 events_plot1
+
 # Bar plot: Distribution of holiday locale
 events_plot2 <- events_df %>%
                   ggplot() +
@@ -586,11 +587,14 @@ sales_core_df <- (sales_df %>%
 ```{r}
 # Mean of missing oil_df data
 mean(is.na(oil_df))
-# Option: Drop missing records since they only account for 2% of data
-# na.omit(oil_df)
+
+# Option 1: Foward and backward fill for missing values
 # oil_df2: New 'oil_df' data frame without missing values
-# Foward and backward fill for missing values
 oil_df2 <- na.locf(oil_df, fromLast = TRUE)
+
+# Option 2: Drop missing records since they only account for 2% of data
+# na.omit(oil_df)
+
 # Confirm oil_df2 has no more missing values
 sum(is.na(oil_df2))
 ```
@@ -726,11 +730,11 @@ legend("bottomright",
 ###### Data-Driven: Smoothing Methods
 
 ```{r}
-# Fit Holt-Winter's model with (M)ultiplicative error, (A)dditive trend, and (M)ultiplicative seasonality
+# Fit Holt-Winter's model with (A)dditive error, (A)dditive trend, and (A)dditive seasonality
 #   for last year of training series
 sales_hw <- ets(window(sales_train_ts, start = c(sales_begin_year, sales_n_train + 1 - sales_n_valid),
                        end = c(sales_begin_year, sales_n_train + 1)),
-                model = "MAM")
+                model = "AAA")
 
 # Forecast (predict) for validation period
 sales_hw_pred <- forecast(sales_hw, h = length(sales_valid_ts), level = 0)
@@ -922,7 +926,7 @@ Acf(sales_res_arima$residuals, lag.max = 52, type = "correlation", plot = TRUE,
 
 ```{r}
 # Fit ARIMA model
-sales_arima <- Arima(sales_train_ts, order = c(1, 0, 0), seasonal = c(0, 0, 2))
+sales_arima <- Arima(sales_train_ts, order = c(1, 1, 0), seasonal = c(0, 1, 2))
 sales_arima_pred <- forecast(sales_arima, h = length(sales_valid_ts))
 
 # Summarize forecast (validation) performance
@@ -1030,6 +1034,33 @@ print(results_df, row.names = FALSE)
 
 # Visualize model comparison
 #**********CODE HERE**********
+```
+```{r}
+plot(results_df$MAE)
+
+text(x = "MAE", y = "", labels = results_df$MAE)
+```
+
+```{r}
+ggplot(results_df, aes(x = MAE, y = MAE)) +
+  geom_point() +
+  geom_text_repel(aes(label = Model)) +
+  geom_smooth(method = lm)
+```
+
+```{r}
+# Bar plot: Performance of all models
+results_df_reshape = reshape2::melt(results_df, c("Model"))
+
+ggplot(results_df_reshape) +
+  geom_bar(aes(x = variable, y = value, fill = Model),
+           stat = "identity",
+           position = "dodge") +
+  scale_y_discrete(labels = NULL, breaks = NULL) +
+  labs(title = "Performance of All Models",
+       x = "Model",
+       y = NULL,
+       bty = "l")
 ```
 
 
