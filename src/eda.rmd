@@ -187,12 +187,12 @@ Reference: [https://www.kaggle.com/competitions/store-sales-time-series-forecast
 dir <- "../data/"
 
 # Load dataset(s)
-setwd(dir)
-sales_df <- read.csv("train.csv", header = TRUE)
-sales_test_df <- read.csv("test.csv", header = TRUE)
-stores_df <- read.csv("stores.csv", header = TRUE)
-oil_df <- read.csv("oil.csv", header = TRUE)
-events_df <- read.csv("holidays_events.csv", header = TRUE)
+#setwd(dir)
+sales_df <- read.csv("/Users/christinevu/Downloads/train.csv", header = TRUE)
+sales_test_df <- read.csv("/Users/christinevu/Downloads/test.csv", header = TRUE)
+stores_df <- read.csv("/Users/christinevu/Downloads/stores.csv", header = TRUE)
+oil_df <- read.csv("/Users/christinevu/Downloads/oil.csv", header = TRUE)
+events_df <- read.csv("/Users/christinevu/Downloads/holidays_events.csv", header = TRUE)
 
 # Data validation and understanding, including structure, content, and statistical characteristics covered below
 ```
@@ -1034,6 +1034,33 @@ print(results_df, row.names = FALSE)
 
 # Visualize model comparison
 #**********CODE HERE**********
+```
+```{r}
+plot(results_df$MAE)
+
+text(x = "MAE", y = "", labels = results_df$MAE)
+```
+
+```{r}
+ggplot(results_df, aes(x = MAE, y = MAE)) +
+  geom_point() +
+  geom_text_repel(aes(label = Model)) +
+  geom_smooth(method = lm)
+```
+
+```{r}
+# Bar plot: Performance of all models
+results_df_reshape = reshape2::melt(results_df, c("Model"))
+
+ggplot(results_df_reshape) +
+  geom_bar(aes(x = variable, y = value, fill = Model),
+           stat = "identity",
+           position = "dodge") +
+  scale_y_discrete(labels = NULL, breaks = NULL) +
+  labs(title = "Performance of All Models",
+       x = "Model",
+       y = NULL,
+       bty = "l")
 ```
 
 
