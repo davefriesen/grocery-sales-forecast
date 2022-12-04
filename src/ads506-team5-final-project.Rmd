@@ -24,6 +24,7 @@ library(dplyr)
 
 # Load visualization libraries
 library(ggplot2)
+library(ggrepel)
 library(plotly)
 library(grDevices)
 
@@ -623,7 +624,7 @@ sales_core_df <- left_join(sales_core_df, oil_df, by = c("date"))
 sales_wk_df <- as.data.frame(sales_core_df %>%
                                mutate(year = year(date), week = week(date)) %>%
                                group_by(year, week) %>%
-                               summarize(sales = sum(sales / 1000.0), dcoilwtico = mean(dcoilwtico)))
+                               summarize(sales = sum(sales / 1000.0), dcoilwtico = mean(dcoilwtico, na.rm = TRUE)))
 
 # Re-create overall time series
 sales_begin_year <- head(sales_wk_df$year, 1)
@@ -767,7 +768,7 @@ legend("bottomright",
 ```
 
 
-###### Model-Driven: Regression
+###### Model-Based: Regression
 
 ```{r}
 # Fit basic regression model with trend and seasonality
@@ -810,7 +811,7 @@ legend("bottomright",
 ```
 
 
-###### Model-Driven: Regression w/Autocorrelation
+###### Model-Based: Regression w/Autocorrelation
 
 ```{r}
 # Compute and plot autocorrelation
@@ -822,7 +823,7 @@ Acf(sales_train_ts, lag.max = 52, type = "correlation", plot = TRUE,
 ```
 
 
-###### Model-Driven: Regression w/Autocorrelation - AR(1)
+###### Model-Based: Regression w/Autocorrelation - AR(1)
 
 ```{r}
 # Compute and plot autocorrelation for regression residuals
@@ -873,7 +874,7 @@ Acf(sales_res_arima$residuals, lag.max = 52, type = "correlation", plot = TRUE,
 ```
 
 
-###### Model-Driven: Regression w/Autocorrelation - ARIMA
+###### Model-Based: Regression w/Autocorrelation - ARIMA
 
 ```{r}
 # Fit ARIMA model
@@ -914,22 +915,28 @@ legend("bottomright",
 ```
 
 
-###### Model-Driven: Regression w/External Information
+###### Model-Based: Regression w/Autocorrelation - ARIMA + External Predictor(r)
 
 ```{r}
-#**********CODE HERE**********
-```
+# Setup train and validation
+train_span <- sales_n_train / 52
+valid_span <- sales_n_valid / 52
+total_span <- train_span + valid_span
+train_end <- ((sales_begin_year + trunc(train_span)) * 100) + ((train_span - floor(train_span)) * 52)
+valid_end <- ((sales_begin_year + trunc(total_span)) * 100) + ((total_span - floor(total_span)) * 52)
+sales_train_df <- as.data.frame(sales_wk_df %>%
+                                  filter(((year * 100) + week) <= train_end))
+sales_valid_df <- as.data.frame(sales_wk_df %>%
+                                  filter(((year * 100) + week) > train_end))
 
-
-###### Model-Driven: Regression w/Autocorrelation - ARIMA + External Predictor(r)
-
-```{r}
 # Identify outcome (target) - sales
-sales_train_y <- ts(sales_wk_df$sales, freq = 52)
+sales_train_y <- ts(sales_train_df$sales, freq = 52)
+sales_valid_y <- ts(sales_valid_df$sales, freq = 52)
 
 # Identify external predictor(s) - oil price
 sales_X <- c("dcoilwtico")
-sales_train_X <- as.matrix(sales_wk_df[ , sales_X])
+sales_train_X <- as.matrix(sales_train_df[ , sales_X])
+sales_valid_X <- as.matrix(sales_valid_df[ , sales_X])
 
 # Fit using auto.arima for sense of best component configuration, and summarize results both without and with external
 #   predictor(s)
@@ -937,13 +944,37 @@ sales_aam <- auto.arima(sales_train_y)
 sales_aamX <- auto.arima(sales_train_y, xreg = sales_train_X)
 summary(sales_aam)
 summary(sales_aamX)
+```
 
-# Fit ARIMA model
-#**********NOTE HAVE BUG IN ARIMA W/EXTERNAL PREDICTOR**********
-sales_am <- Arima(sales_train_y, order = c(0, 0, 1))
-#sales_amX <- Arima(sales_train_y, order = c(0, 0, 1), xreg = sales_train_X)
-summary(sales_am)
-#summary(sales_amX)
+
+###### Model-Based: Neural Network Autoregression
+
+```{r}
+#
+set.seed(201)
+nValid <- 36
+
+# Fit Neural Network Autoregression model
+sales_train.nnetar <- nnetar(sales_train_ts, repeats = 20, p = 10, P = 1, size = 7)
+summary(sales_train.nnetar$model[[1]])
+sales_train.nnetar.pred <- forecast(sales_train.nnetar, h = nValid)
+
+# Plot model
+plot(sales_train_ts, main = "Store Sales  |  Neural Network Autoregression",
+     xlab = "Date", ylab = "Store Sales", xlim = c(2013, 2017),
+     bty = "l", lty = 1)
+axis(1, at = seq(2013, 2017, 1), labels = format(seq(2013, 2017, 1)))
+
+# Add additional lines
+lines(sales_train.nnetar.pred$fitted, lwd = 2, col = "blue")
+lines(sales_train.nnetar.pred$mean, lwd = 2, col = "red", lty = 2)
+lines(sales_valid_ts)
+
+# Summarize performance
+accuracy(sales_train.nnetar.pred, sales_valid_ts)
+results_df <- rbind(results_df, data.frame(Model = "Neural Network Autoregression",
+                                           Set = c("Train", "Test"),
+                                           accuracy(sales_train.nnetar.pred, sales_valid_ts)))
 ```
 
 
@@ -952,10 +983,31 @@ summary(sales_am)
 ```{r}
 # Show table of summary results
 print(results_df, row.names = FALSE)
-
-# Visualize model comparison
-#**********CODE HERE**********
 ```
 
+```{r}
+# Visualize model comparison
+plot(results_df$MAE)
+text(x = "MAE", y = "", labels = results_df$MAE)
+```
 
-### Implement Forecasts/System
+```{r}
+ggplot(results_df, aes(x = MAE, y = MAE)) +
+  geom_point() +
+  geom_text_repel(aes(label = Model)) +
+  geom_smooth(method = lm)
+```
+
+```{r}
+# Bar plot: Performance of all models
+results_df_reshape = reshape2::melt(results_df, c("Model"))
+ggplot(results_df_reshape) +
+  geom_bar(aes(x = variable, y = value, fill = Model),
+           stat = "identity",
+           position = "dodge") +
+  scale_y_discrete(labels = NULL, breaks = NULL) +
+  labs(title = "Performance of All Models",
+       x = "Model",
+       y = NULL,
+       bty = "l")
+```
