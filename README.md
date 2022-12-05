@@ -24,7 +24,7 @@ The purpose of this project aims to describe grocery store sales behavior and fo
     * Exponential Smoothing (ANN: Additive error, no trend, no seasonality)
     * Exponential Smoothing (AAN: Additive error, additive trend, no seasonality
     * Exponential Smoothing (MMN: Multiplicative error, multiplicative trend, no seasonality)
-    * Exponential Smoothing (MMdN: Multiplicative damped trend)
+    * Exponential Smoothing (MMdN: Multiplicative error, multiplicative damped trend, no seasonality)
     * Simple Regression
     * First-Order Autoregression (AR(1))
     * ARIMA
