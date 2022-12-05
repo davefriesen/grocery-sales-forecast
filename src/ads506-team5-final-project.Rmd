@@ -1042,7 +1042,7 @@ results_df_reshape1 %>%
               summarise(RMSE = max(RMSE),
                         label_RMSE = round(sum(RMSE, na.rm = TRUE), 1)),
             aes(x = Model, y = RMSE, label = label_RMSE),
-            nudge_y = 1) +
+            nudge_y = 30) +
   theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1)) +
   labs(title = "RMSE of All Models",
        x = "Model",
