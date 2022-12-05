@@ -767,6 +767,49 @@ legend("bottomright",
        box.lty = 0, bg = NULL, text.col = c("dodgerblue", "red"))
 ```
 
+```{r}
+# Exponential smoothing models:
+# ANN: (A)dditive error, (N)o trend, and (N)o seasonality
+# AAN: (A)dditive error, (A)dditive trend, and (N)o seasonality
+# MMN: (M)ultiplicative error, (M)ultiplicative trend, and (N)o seasonality
+# MMdN: Multiplicative damped trend (Md)
+
+sales.ets.ANN <- ets(sales_train_ts, model = "ANN")
+sales.ets.AAN <- ets(sales_train_ts, model = "AAN")
+sales.ets.MMN <- ets(sales_train_ts, model = "MMN", damped = FALSE)
+sales.ets.MMdN <- ets(sales_train_ts, model = "MMN", damped = TRUE)
+
+sales.ets.ANN.pred <- forecast(sales.ets.ANN)
+sales.ets.AAN.pred <- forecast(sales.ets.AAN)
+sales.ets.MMN.pred <- forecast(sales.ets.MMN)
+sales.ets.MMdN.pred <- forecast(sales.ets.MMdN)
+
+# Plot exponential smoothing models
+plot(sales.ets.ANN.pred, main = "ANN Model", xlab = "Date", ylab = "Sales")
+plot(sales.ets.AAN.pred, main = "AAN Model", xlab = "Date", ylab = "Sales")
+plot(sales.ets.MMN.pred, main = "MMN Model", xlab = "Date", ylab = "Sales")
+plot(sales.ets.MMdN.pred, main = "MMdN Model", xlab = "Date", ylab = "Sales")
+
+# Summarize forecast (validation) performance
+accuracy(sales.ets.ANN.pred, sales_valid_ts)
+accuracy(sales.ets.AAN.pred, sales_valid_ts)
+accuracy(sales.ets.MMN.pred, sales_valid_ts)
+accuracy(sales.ets.MMdN.pred, sales_valid_ts)
+
+results_df <- rbind(results_df, data.frame(Model = "Exponential Smoothing (AAN)",
+                                           Set = c("Train", "Test"),
+                                           accuracy(sales.ets.ANN.pred, sales_valid_ts)))
+results_df <- rbind(results_df, data.frame(Model = "Exponential Smoothing (AAN)",
+                                           Set = c("Train", "Test"),
+                                           accuracy(sales.ets.AAN.pred, sales_valid_ts)))
+results_df <- rbind(results_df, data.frame(Model = "Exponential Smoothing (MMN)",
+                                           Set = c("Train", "Test"),
+                                           accuracy(sales.ets.MMN.pred, sales_valid_ts)))
+results_df <- rbind(results_df, data.frame(Model = "Exponential Smoothing (MMdN)",
+                                           Set = c("Train", "Test"),
+                                           accuracy(sales.ets.MMdN.pred, sales_valid_ts)))
+```
+
 
 ###### Model-Based: Regression
 
@@ -986,28 +1029,57 @@ print(results_df, row.names = FALSE)
 ```
 
 ```{r}
-# Visualize model comparison
-plot(results_df$MAE)
-text(x = "MAE", y = "", labels = results_df$MAE)
+# Bar plot: RMSE of all models (Except AR(1))
+results_df_reshape1 <- reshape2::melt(results_df, c("Model", "RMSE")) %>%
+                        filter(Model != "AR(1)")
+results_df_reshape1 %>%
+  ggplot() +
+  geom_bar(aes(x = reorder(Model, -RMSE), y = RMSE, fill = Model),
+           stat = "identity",
+           position = "dodge") +
+  geom_text(data = results_df_reshape1 %>%
+              group_by(Model) %>%
+              summarise(RMSE = max(RMSE),
+                        label_RMSE = round(sum(RMSE, na.rm = TRUE), 1)),
+            aes(x = Model, y = RMSE, label = label_RMSE),
+            nudge_y = 1) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1)) +
+  labs(title = "RMSE of All Models",
+       x = "Model",
+       y = "RMSE",
+       bty = "l")
 ```
 
 ```{r}
-ggplot(results_df, aes(x = MAE, y = MAE)) +
-  geom_point() +
-  geom_text_repel(aes(label = Model)) +
-  geom_smooth(method = lm)
+# Bar plot: MAPE of all models (Except AR(1))
+results_df_reshape2 <- reshape2::melt(results_df, c("Model", "MAPE")) %>%
+                        filter(Model != "AR(1)")
+results_df_reshape2 %>%
+  ggplot() +
+  geom_bar(aes(x = reorder(Model, -MAPE), y = MAPE, fill = Model),
+           stat = "identity",
+           position = "dodge") +
+  geom_text(data = results_df_reshape2 %>%
+              group_by(Model) %>%
+              summarise(MAPE = max(MAPE),
+                        label_MAPE = round(sum(MAPE, na.rm = TRUE), 2)),
+            aes(x = Model, y = MAPE, label = label_MAPE), nudge_y = 1) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1)) +
+  labs(title = "MAPE of All Models",
+       x = "Model",
+       y = "MAPE",
+       bty = "l")
 ```
 
 ```{r}
 # Bar plot: Performance of all models
-results_df_reshape = reshape2::melt(results_df, c("Model"))
+results_df_reshape = reshape2::melt(results_df, c("Model", "Set"))
 ggplot(results_df_reshape) +
   geom_bar(aes(x = variable, y = value, fill = Model),
            stat = "identity",
            position = "dodge") +
-  scale_y_discrete(labels = NULL, breaks = NULL) +
   labs(title = "Performance of All Models",
        x = "Model",
-       y = NULL,
        bty = "l")
 ```
+
