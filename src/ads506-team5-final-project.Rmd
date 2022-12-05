@@ -1072,6 +1072,49 @@ results_df_reshape2 %>%
 ```
 
 ```{r}
+# Bar plot: RMSE of all models (Except AR(1))
+results_df_reshape1 <- reshape2::melt(results_df, c("Model", "RMSE")) %>%
+                        filter(Model != "AR(1)")
+results_df_reshape1 %>%
+  ggplot() +
+  geom_bar(aes(x = reorder(Model, -RMSE), y = RMSE, fill = Model),
+           stat = "identity",
+           position = "dodge") +
+  geom_text(data = results_df_reshape1 %>%
+              group_by(Model) %>%
+              summarise(RMSE = max(RMSE),
+                        label_RMSE = round(sum(RMSE, na.rm = TRUE), 1)),
+            aes(x = Model, y = RMSE, label = label_RMSE),
+            nudge_y = 30) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1)) +
+  labs(title = "RMSE of All Models",
+       x = "Model",
+       y = "RMSE",
+       bty = "l")
+```
+
+```{r}
+# Bar plot: MAPE of all models (Except AR(1))
+results_df_reshape2 <- reshape2::melt(results_df, c("Model", "MAPE")) %>%
+                        filter(Model != "AR(1)")
+results_df_reshape2 %>%
+  ggplot() +
+  geom_bar(aes(x = reorder(Model, -MAPE), y = MAPE, fill = Model),
+           stat = "identity",
+           position = "dodge") +
+  geom_text(data = results_df_reshape2 %>%
+              group_by(Model) %>%
+              summarise(MAPE = max(MAPE),
+                        label_MAPE = round(sum(MAPE, na.rm = TRUE), 2)),
+            aes(x = Model, y = MAPE, label = label_MAPE), nudge_y = 1) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1)) +
+  labs(title = "MAPE of All Models",
+       x = "Model",
+       y = "MAPE",
+       bty = "l")
+```
+
+```{r}
 # Bar plot: Performance of all models
 results_df_reshape = reshape2::melt(results_df, c("Model", "Set"))
 ggplot(results_df_reshape) +
