@@ -1031,35 +1031,76 @@ results_df <- rbind(results_df, data.frame(Model = "Neural Network Autoregressio
 ```{r}
 # Show table of summary results
 print(results_df, row.names = FALSE)
-
-# Visualize model comparison
-#**********CODE HERE**********
-```
-```{r}
-plot(results_df$MAE)
-
-text(x = "MAE", y = "", labels = results_df$MAE)
 ```
 
 ```{r}
-ggplot(results_df, aes(x = MAE, y = MAE)) +
-  geom_point() +
-  geom_text_repel(aes(label = Model)) +
-  geom_smooth(method = lm)
+# Bar plot: RMSE of all models (Except AR(1))
+results_df_reshape1 = reshape2::melt(results_df, c("Model", "RMSE")) %>%
+                        filter(Model != "AR(1)")
+
+ggplot(results_df_reshape1) +
+  geom_bar(aes(x = reorder(Model, -RMSE), y = RMSE, fill = Model),
+           stat = "identity",
+           position = "dodge") +
+  labs(title = "RMSE of All Models",
+       x = "Model",
+       y = "RMSE",
+       bty = "l")
+```
+
+```{r}
+# Bar plot: RMSE of all models (Except AR(1))
+results_df_reshape1 <- reshape2::melt(results_df, c("Model", "RMSE")) %>%
+                        filter(Model != "AR(1)")
+
+results_df_reshape1 %>%
+  ggplot() +
+  geom_bar(aes(x = reorder(Model, -RMSE), y = RMSE, fill = Model),
+           stat = "identity",
+           position = "dodge") +
+  geom_text(data = results_df_reshape %>%
+              group_by(Model) %>%
+              summarise(RMSE = max(RMSE),
+                        label_RMSE = round(sum(RMSE, na.rm = TRUE), 1)),
+            aes(x = Model, y = RMSE, label = label_RMSE),
+            nudge_y = 1) +
+  labs(title = "RMSE of All Models",
+       x = "Model",
+       y = "RMSE",
+       bty = "l")
+```
+
+```{r}
+# Bar plot: MAPE of all models (Except AR(1))
+results_df_reshape2 <- reshape2::melt(results_df, c("Model", "MAPE")) %>%
+                        filter(Model != "AR(1)")
+
+results_df_reshape2 %>%
+  ggplot() +
+  geom_bar(aes(x = reorder(Model, -MAPE), y = MAPE, fill = Model),
+           stat = "identity",
+           position = "dodge") +
+  geom_text(data = results_df_reshape %>%
+              group_by(Model) %>%
+              summarise(MAPE = max(MAPE),
+                        label_MAPE = round(sum(MAPE, na.rm = TRUE), 2)),
+            aes(x = Model, y = MAPE, label = label_MAPE), nudge_y = 1) +
+  labs(title = "MAPE of All Models",
+       x = "Model",
+       y = "MAPE",
+       bty = "l")
 ```
 
 ```{r}
 # Bar plot: Performance of all models
-results_df_reshape = reshape2::melt(results_df, c("Model"))
+results_df_reshape = reshape2::melt(results_df, c("Model", "Set"))
 
 ggplot(results_df_reshape) +
   geom_bar(aes(x = variable, y = value, fill = Model),
            stat = "identity",
            position = "dodge") +
-  scale_y_discrete(labels = NULL, breaks = NULL) +
   labs(title = "Performance of All Models",
        x = "Model",
-       y = NULL,
        bty = "l")
 ```
 
