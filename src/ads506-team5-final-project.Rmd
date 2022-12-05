@@ -1030,15 +1030,15 @@ print(results_df, row.names = FALSE)
 
 ```{r}
 # Bar plot: RMSE of all models (Except AR(1))
-results_df_reshape1 <- reshape2::melt(results_df, c("Model", "RMSE")) %>%
+results_df_reshape1 <- reshape2::melt(results_df, c("Model", "Set", "RMSE")) %>%
                         filter(Model != "AR(1)")
 results_df_reshape1 %>%
   ggplot() +
-  geom_bar(aes(x = reorder(Model, -RMSE), y = RMSE, fill = Model),
+  geom_bar(aes(x = reorder(Model, -RMSE), y = RMSE, fill = Set),
            stat = "identity",
            position = "dodge") +
   geom_text(data = results_df_reshape1 %>%
-              group_by(Model) %>%
+              group_by(Model, Set) %>%
               summarise(RMSE = max(RMSE),
                         label_RMSE = round(sum(RMSE, na.rm = TRUE), 1)),
             aes(x = Model, y = RMSE, label = label_RMSE),
@@ -1052,15 +1052,15 @@ results_df_reshape1 %>%
 
 ```{r}
 # Bar plot: MAPE of all models (Except AR(1))
-results_df_reshape2 <- reshape2::melt(results_df, c("Model", "MAPE")) %>%
+results_df_reshape2 <- reshape2::melt(results_df, c("Model", "Set", "MAPE")) %>%
                         filter(Model != "AR(1)")
 results_df_reshape2 %>%
   ggplot() +
-  geom_bar(aes(x = reorder(Model, -MAPE), y = MAPE, fill = Model),
+  geom_bar(aes(x = reorder(Model, -MAPE), y = MAPE, fill = Set),
            stat = "identity",
            position = "dodge") +
   geom_text(data = results_df_reshape2 %>%
-              group_by(Model) %>%
+              group_by(Model, Set) %>%
               summarise(MAPE = max(MAPE),
                         label_MAPE = round(sum(MAPE, na.rm = TRUE), 2)),
             aes(x = Model, y = MAPE, label = label_MAPE), nudge_y = 1) +
