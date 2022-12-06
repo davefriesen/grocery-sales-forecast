@@ -1,7 +1,7 @@
 # Grocery Store Sales Forecast
 This is the final project for the University of San Diego’s ADS 506 Applied Time Series Analysis course. The technical workbook can be found at the [main GitHub repository](https://github.com/davefriesen/grocery-sales-forecast).
 
-#### -- Project Status: [In Progress]
+#### -- Project Status: [Completed]
 
 ## Project Introduction and Objective
 The purpose of this project aims to describe grocery store sales behavior and forecast these sales across a range of product families using data-driven and model-based approaches. The project’s overarching business goal is to establish, in practical terms, the feasibility of using – and potentially automating – one or more of these approaches in a real-world scenario. Note that while the expected outcome is a generalized approach, the study uses representative secondary data from a public data source.
